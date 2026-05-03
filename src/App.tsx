@@ -17,6 +17,7 @@ import Dashboard from "@/admin/dashboard/Dashboard";
 import Comments from "@/admin/pages/Comments";
 import Questions from "@/admin/pages/Questions";
 import Menus from "@/admin/pages/Menus";
+import Reports from "@/admin/pages/Reports";
 
 const queryClient = new QueryClient();
 
@@ -43,7 +44,7 @@ const App = () => (
               }
             >
               <Route path="/admin/dashboard" element={<Dashboard />} />
-              <Route path="/admin/reports" element={<PlaceholderPage title="Reportes PDF" />} />
+              <Route path="/admin/reports" element={<Reports />} />
             </Route>
 
             <Route
