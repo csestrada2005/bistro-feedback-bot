@@ -18,6 +18,7 @@ import Comments from "@/admin/pages/Comments";
 import Questions from "@/admin/pages/Questions";
 import Menus from "@/admin/pages/Menus";
 import Reports from "@/admin/pages/Reports";
+import Settings from "@/admin/pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -57,7 +58,7 @@ const App = () => (
               <Route path="/admin/comments" element={<Comments />} />
               <Route path="/admin/questions" element={<Questions />} />
               <Route path="/admin/menus" element={<Menus />} />
-              <Route path="/admin/settings" element={<PlaceholderPage title="Ajustes" />} />
+              <Route path="/admin/settings" element={<Settings />} />
             </Route>
 
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

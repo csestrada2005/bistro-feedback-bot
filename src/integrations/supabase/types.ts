@@ -74,6 +74,54 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          alert_drop_pct: number
+          alert_emails: string[]
+          alert_menu_score: number
+          alert_pending_comments: number
+          cooldown_hours: number
+          id: number
+          min_response_ms: number
+          pdf_color: string
+          pdf_company_name: string
+          pdf_logo_url: string
+          quorum: number
+          service_hours: Json
+          updated_at: string
+        }
+        Insert: {
+          alert_drop_pct?: number
+          alert_emails?: string[]
+          alert_menu_score?: number
+          alert_pending_comments?: number
+          cooldown_hours?: number
+          id?: number
+          min_response_ms?: number
+          pdf_color?: string
+          pdf_company_name?: string
+          pdf_logo_url?: string
+          quorum?: number
+          service_hours?: Json
+          updated_at?: string
+        }
+        Update: {
+          alert_drop_pct?: number
+          alert_emails?: string[]
+          alert_menu_score?: number
+          alert_pending_comments?: number
+          cooldown_hours?: number
+          id?: number
+          min_response_ms?: number
+          pdf_color?: string
+          pdf_company_name?: string
+          pdf_logo_url?: string
+          quorum?: number
+          service_hours?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_menus: {
         Row: {
           created_at: string
