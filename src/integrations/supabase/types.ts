@@ -14,16 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_menus: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          id: string
+          main_dish: string
+          notes: string | null
+          side_dish: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          id?: string
+          main_dish: string
+          notes?: string | null
+          side_dish?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          id?: string
+          main_dish?: string
+          notes?: string | null
+          side_dish?: string | null
+        }
+        Relationships: []
+      }
+      pdf_reports: {
+        Row: {
+          generated_at: string
+          generated_by: string | null
+          id: string
+          pdf_url: string
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          pdf_url: string
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          pdf_url?: string
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          id: string
+          is_active: boolean
+          order_num: number
+          question_text: string
+          question_type: Database["public"]["Enums"]["question_kind"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          order_num: number
+          question_text: string
+          question_type: Database["public"]["Enums"]["question_kind"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          order_num?: number
+          question_text?: string
+          question_type?: Database["public"]["Enums"]["question_kind"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      surveys: {
+        Row: {
+          comment: string | null
+          comment_status: Database["public"]["Enums"]["comment_moderation_status"]
+          created_at: string
+          daily_menu_id: string | null
+          device_fingerprint: string
+          id: string
+          is_flagged: boolean
+          question_1_score: number
+          question_2_score: number
+          question_3_trend: Database["public"]["Enums"]["trend_answer"]
+          question_4_recommend: Database["public"]["Enums"]["recommend_answer"]
+          response_time_ms: number
+        }
+        Insert: {
+          comment?: string | null
+          comment_status?: Database["public"]["Enums"]["comment_moderation_status"]
+          created_at?: string
+          daily_menu_id?: string | null
+          device_fingerprint: string
+          id?: string
+          is_flagged?: boolean
+          question_1_score: number
+          question_2_score: number
+          question_3_trend: Database["public"]["Enums"]["trend_answer"]
+          question_4_recommend: Database["public"]["Enums"]["recommend_answer"]
+          response_time_ms: number
+        }
+        Update: {
+          comment?: string | null
+          comment_status?: Database["public"]["Enums"]["comment_moderation_status"]
+          created_at?: string
+          daily_menu_id?: string | null
+          device_fingerprint?: string
+          id?: string
+          is_flagged?: boolean
+          question_1_score?: number
+          question_2_score?: number
+          question_3_trend?: Database["public"]["Enums"]["trend_answer"]
+          question_4_recommend?: Database["public"]["Enums"]["recommend_answer"]
+          response_time_ms?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surveys_daily_menu_id_fkey"
+            columns: ["daily_menu_id"]
+            isOneToOne: false
+            referencedRelation: "daily_menus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "cafeteria_admin" | "hr_viewer"
+      comment_moderation_status: "pending" | "approved" | "archived" | "deleted"
+      question_kind: "scale_5" | "trend_3" | "recommend_3" | "comment"
+      recommend_answer: "no" | "tal_vez" | "si"
+      trend_answer: "peor" | "igual" | "mejor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +320,12 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["cafeteria_admin", "hr_viewer"],
+      comment_moderation_status: ["pending", "approved", "archived", "deleted"],
+      question_kind: ["scale_5", "trend_3", "recommend_3", "comment"],
+      recommend_answer: ["no", "tal_vez", "si"],
+      trend_answer: ["peor", "igual", "mejor"],
+    },
   },
 } as const
