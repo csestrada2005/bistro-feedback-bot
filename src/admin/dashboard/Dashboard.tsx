@@ -97,6 +97,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [allSurveys, setAllSurveys] = useState<SurveyRow[]>([]);
   const [menus, setMenus] = useState<MenuRow[]>([]);
+  const [insights, setInsights] = useState<{
+    executive_summary: string;
+    patterns: string[];
+    bottlenecks: { label: string; detail: string }[];
+    recommendations: { title: string; impact: string }[];
+    cached?: boolean;
+  } | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
