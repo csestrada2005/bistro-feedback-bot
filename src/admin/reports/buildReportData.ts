@@ -152,7 +152,6 @@ export async function buildReportData(opts: {
 
   const approvedComments = withComment
     .filter((r) => (opts.approvedOnly ? r.comment_status === "approved" : r.comment_status !== "deleted"))
-    .slice(0, 20)
     .map((r) => ({
       date: dayKey(r.created_at),
       text: r.comment ?? "",
@@ -166,6 +165,47 @@ export async function buildReportData(opts: {
     .slice(0, 3)
     .map((d) => ({ label: d.date, detail: `Sabor promedio ${d.value.toFixed(2)}` }));
 
+  // ---- AI enrichment (graceful fallback) ----
+  let aiSummary: string | null = null;
+  let aiPatterns: string[] = [];
+  let aiBottlenecks: { label: string; detail: string }[] = [];
+  let aiRecs: { title: string; impact: string }[] = [];
+  let rankedComments = approvedComments.slice(0, 20);
+
+  try {
+    const { data: ai, error: aiErr } = await supabase.functions.invoke("pdf-insights", {
+      body: {
+        periodStart: opts.periodStart,
+        periodEnd: opts.periodEnd,
+        totalResponses: rows.length,
+        validResponses,
+        questions: questions.map((q) => ({
+          text: q.text,
+          average: q.average,
+          changeVsPrev: q.changeVsPrev,
+        })),
+        bottomDays: bottlenecks.map((b) => ({ date: b.label, avgScore: Number(b.detail.replace(/[^\d.]/g, "")) })),
+        comments: approvedComments.slice(0, 40).map((c) => ({ date: c.date, text: c.text })),
+      },
+    });
+    if (!aiErr && ai && !(ai as any).error) {
+      const a = ai as any;
+      aiSummary = a.executive_summary ?? null;
+      aiPatterns = a.patterns ?? [];
+      aiBottlenecks = a.bottlenecks ?? [];
+      aiRecs = a.recommendations ?? [];
+      if (Array.isArray(a.comment_scores) && a.comment_scores.length) {
+        const byText = new Map<string, number>();
+        for (const s of a.comment_scores) byText.set(s.text, Number(s.relevance) || 0);
+        rankedComments = [...approvedComments]
+          .sort((x, y) => (byText.get(y.text) ?? 0) - (byText.get(x.text) ?? 0))
+          .slice(0, 20);
+      }
+    }
+  } catch (e) {
+    console.warn("pdf-insights failed, falling back", e);
+  }
+
   return {
     title: opts.title,
     periodStart: opts.periodStart,
@@ -173,14 +213,14 @@ export async function buildReportData(opts: {
     generatedBy: opts.generatedBy,
     generatedAt: new Date().toLocaleString("es-MX"),
     executiveSummary:
-      `Durante el período se registraron ${rows.length} respuestas (${validResponses} válidas tras filtros anti-fraude). ` +
-      `El sabor promedio fue ${questions[0].average.toFixed(2)}/5 y la recomendación neta fue ${(questions[3].average * 100).toFixed(0)}%. ` +
-      `Análisis cualitativo IA pendiente.`,
+      aiSummary ??
+      `Análisis IA no disponible. Durante el período se registraron ${rows.length} respuestas (${validResponses} válidas). ` +
+        `Sabor promedio: ${questions[0].average.toFixed(2)}/5. Recomendación neta: ${(questions[3].average * 100).toFixed(0)}%.`,
     questions,
-    patterns: [],
-    bottlenecks,
-    comments: approvedComments,
-    recommendations: [],
+    patterns: aiPatterns,
+    bottlenecks: aiBottlenecks.length ? aiBottlenecks : bottlenecks,
+    comments: rankedComments,
+    recommendations: aiRecs,
     methodology: {
       totalResponses: rows.length,
       validResponses,
