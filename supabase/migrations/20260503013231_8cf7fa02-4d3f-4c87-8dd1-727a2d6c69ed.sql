@@ -1,0 +1,1 @@
+UPDATE public.surveys s SET daily_menu_id = m.id FROM public.daily_menus m WHERE s.created_at::date = m.date AND s.daily_menu_id IS NULL;
