@@ -7,10 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const SERVING_START_HOUR = 12; // 12:00
-const SERVING_END_HOUR = 15; // 15:00 (exclusive)
-const COOLDOWN_MS = 4 * 60 * 60 * 1000;
-const MIN_RESPONSE_MS = 3000;
+const DEFAULT_HOURS = [{ label: "Comida", start_h: 12, start_m: 0, end_h: 15, end_m: 0 }];
+const DEFAULT_COOLDOWN_H = 4;
+const DEFAULT_MIN_MS = 3000;
 const TZ = "America/Mexico_City";
 
 const BodySchema = z.object({
@@ -71,21 +70,35 @@ Deno.serve(async (req) => {
 
   // Hours check
   const mx = nowInMx();
-  if (mx.hour < SERVING_START_HOUR || mx.hour >= SERVING_END_HOUR) {
-    return jsonError(403, "OUTSIDE_HOURS", "El comedor está cerrado en este momento", {
-      serving_start: SERVING_START_HOUR,
-      serving_end: SERVING_END_HOUR,
-    });
-  }
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  const { data: settings } = await supabase
+    .from("app_settings")
+    .select("service_hours, cooldown_hours, min_response_ms")
+    .eq("id", 1)
+    .maybeSingle();
+
+  const hours: Array<{ start_h: number; start_m: number; end_h: number; end_m: number }> =
+    (settings?.service_hours as any) ?? DEFAULT_HOURS;
+  const cooldownMs = ((settings?.cooldown_hours as number) ?? DEFAULT_COOLDOWN_H) * 60 * 60 * 1000;
+  const minResponseMs = (settings?.min_response_ms as number) ?? DEFAULT_MIN_MS;
+
+  const nowMin = mx.hour * 60 + mx.minute;
+  const isOpen = hours.some((h) => {
+    const s = h.start_h * 60 + (h.start_m ?? 0);
+    const e = h.end_h * 60 + (h.end_m ?? 0);
+    return nowMin >= s && nowMin < e;
+  });
+  if (!isOpen) {
+    return jsonError(403, "OUTSIDE_HOURS", "El comedor está cerrado en este momento", { hours });
+  }
+
   // Cooldown check
-  const since = new Date(Date.now() - COOLDOWN_MS).toISOString();
+  const since = new Date(Date.now() - cooldownMs).toISOString();
   const { data: recent, error: recentErr } = await supabase
     .from("surveys")
     .select("created_at")
@@ -102,7 +115,7 @@ Deno.serve(async (req) => {
     const lastMs = new Date(recent.created_at as string).getTime();
     const retryAfterSec = Math.max(
       1,
-      Math.ceil((COOLDOWN_MS - (Date.now() - lastMs)) / 1000)
+      Math.ceil((cooldownMs - (Date.now() - lastMs)) / 1000)
     );
     return jsonError(429, "COOLDOWN_ACTIVE", "Ya registramos tu opinión recientemente", {
       retry_after_seconds: retryAfterSec,
@@ -121,7 +134,7 @@ Deno.serve(async (req) => {
     data.q1 === 1 && data.q2 === 1 && data.q3 === "peor" && data.q4 === "no";
   const allMax =
     data.q1 === 5 && data.q2 === 5 && data.q3 === "mejor" && data.q4 === "si";
-  const isFlagged = data.response_time_ms < MIN_RESPONSE_MS || allMin || allMax;
+  const isFlagged = data.response_time_ms < minResponseMs || allMin || allMax;
 
   const comment = data.comment?.trim() ? data.comment.trim() : null;
 
