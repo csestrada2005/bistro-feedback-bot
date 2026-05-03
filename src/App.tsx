@@ -14,6 +14,9 @@ import Forbidden from "@/admin/pages/Forbidden";
 import NoAccess from "@/admin/pages/NoAccess";
 import PlaceholderPage from "@/admin/pages/Stub";
 import Dashboard from "@/admin/dashboard/Dashboard";
+import Comments from "@/admin/pages/Comments";
+import Questions from "@/admin/pages/Questions";
+import Menus from "@/admin/pages/Menus";
 
 const queryClient = new QueryClient();
 
@@ -50,9 +53,9 @@ const App = () => (
                 </RequireAuth>
               }
             >
-              <Route path="/admin/comments" element={<PlaceholderPage title="Comentarios" />} />
-              <Route path="/admin/questions" element={<PlaceholderPage title="Preguntas" />} />
-              <Route path="/admin/menus" element={<PlaceholderPage title="Menús del día" />} />
+              <Route path="/admin/comments" element={<Comments />} />
+              <Route path="/admin/questions" element={<Questions />} />
+              <Route path="/admin/menus" element={<Menus />} />
               <Route path="/admin/settings" element={<PlaceholderPage title="Ajustes" />} />
             </Route>
 
