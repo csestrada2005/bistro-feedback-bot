@@ -450,12 +450,70 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <Button disabled={!isAdmin} className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            Generar análisis IA
+          <Button
+            disabled={!isAdmin || insightsLoading}
+            className="gap-2"
+            onClick={generateInsights}
+          >
+            {insightsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {insights ? "Regenerar análisis" : "Generar análisis IA"}
           </Button>
         </div>
+        {insights && (
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-lg border border-border bg-card p-4 lg:col-span-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Resumen ejecutivo
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-foreground">
+                {insights.executive_summary}
+              </p>
+              {insights.cached && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Resultado en caché (válido por 1 hora).
+                </p>
+              )}
+            </div>
+            <InsightList title="Patrones detectados" items={insights.patterns.map((p) => ({ title: p }))} />
+            <InsightList
+              title="Cuellos de botella"
+              items={insights.bottlenecks.map((b) => ({ title: b.label, sub: b.detail }))}
+            />
+            <InsightList
+              title="Recomendaciones"
+              items={insights.recommendations.map((r) => ({ title: r.title, sub: r.impact }))}
+            />
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function InsightList({
+  title,
+  items,
+}: {
+  title: string;
+  items: { title: string; sub?: string }[];
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </p>
+      <ul className="mt-3 space-y-3">
+        {items.map((it, i) => (
+          <li key={i} className="text-sm">
+            <p className="font-medium text-foreground">{it.title}</p>
+            {it.sub && <p className="mt-0.5 text-xs text-muted-foreground">{it.sub}</p>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
