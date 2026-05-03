@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_insights_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          payload: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          payload: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
+      ai_usage: {
+        Row: {
+          completion_tokens: number | null
+          created_at: string
+          error: string | null
+          function_name: string
+          id: string
+          model: string | null
+          prompt_tokens: number | null
+          status: string
+          total_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          completion_tokens?: number | null
+          created_at?: string
+          error?: string | null
+          function_name: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          status: string
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          completion_tokens?: number | null
+          created_at?: string
+          error?: string | null
+          function_name?: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          status?: string
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       daily_menus: {
         Row: {
           created_at: string

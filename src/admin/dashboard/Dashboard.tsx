@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -96,6 +97,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [allSurveys, setAllSurveys] = useState<SurveyRow[]>([]);
   const [menus, setMenus] = useState<MenuRow[]>([]);
+  const [insights, setInsights] = useState<{
+    executive_summary: string;
+    patterns: string[];
+    bottlenecks: { label: string; detail: string }[];
+    recommendations: { title: string; impact: string }[];
+    cached?: boolean;
+  } | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,6 +234,50 @@ export default function Dashboard() {
   }, [saborTrend, respToday, flaggedCount]);
 
   const todayWarn = respToday > 0 && respToday < QUORUM;
+
+  const generateInsights = async () => {
+    if (!isAdmin) return;
+    setInsightsLoading(true);
+    try {
+      const questions = [
+        { text: "Sabor (Q1)", average: avg(cleanSurveys.map((r) => r.question_1_score)) },
+        { text: "Limpieza (Q2)", average: avg(cleanSurveys.map((r) => r.question_2_score)) },
+        {
+          text: "Tendencia vs ayer (Q3)",
+          average: avg(cleanSurveys.map((r) => trendToScore(r.question_3_trend))),
+        },
+        {
+          text: "Recomendación (Q4)",
+          average: avg(cleanSurveys.map((r) => recommendToScore(r.question_4_recommend))),
+        },
+      ];
+      const topComments = cleanSurveys
+        .filter((r) => r.comment && r.comment_status !== "deleted")
+        .slice(0, 20)
+        .map((r) => ({ text: r.comment ?? "", date: ymd(r.created_at) }));
+      const bottomDays = dayBuckets.map((b) => ({ date: b.day, avgScore: b.score }));
+
+      const { data, error } = await supabase.functions.invoke("generate-insights", {
+        body: {
+          periodStart: ymd(range.from),
+          periodEnd: ymd(range.to),
+          totalResponses: filtered.length,
+          validResponses: cleanSurveys.length,
+          questions,
+          topComments,
+          bottomDays,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setInsights(data as any);
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el análisis IA");
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -397,12 +450,70 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <Button disabled={!isAdmin} className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            Generar análisis IA
+          <Button
+            disabled={!isAdmin || insightsLoading}
+            className="gap-2"
+            onClick={generateInsights}
+          >
+            {insightsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {insights ? "Regenerar análisis" : "Generar análisis IA"}
           </Button>
         </div>
+        {insights && (
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-lg border border-border bg-card p-4 lg:col-span-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Resumen ejecutivo
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-foreground">
+                {insights.executive_summary}
+              </p>
+              {insights.cached && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Resultado en caché (válido por 1 hora).
+                </p>
+              )}
+            </div>
+            <InsightList title="Patrones detectados" items={insights.patterns.map((p) => ({ title: p }))} />
+            <InsightList
+              title="Cuellos de botella"
+              items={insights.bottlenecks.map((b) => ({ title: b.label, sub: b.detail }))}
+            />
+            <InsightList
+              title="Recomendaciones"
+              items={insights.recommendations.map((r) => ({ title: r.title, sub: r.impact }))}
+            />
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function InsightList({
+  title,
+  items,
+}: {
+  title: string;
+  items: { title: string; sub?: string }[];
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </p>
+      <ul className="mt-3 space-y-3">
+        {items.map((it, i) => (
+          <li key={i} className="text-sm">
+            <p className="font-medium text-foreground">{it.title}</p>
+            {it.sub && <p className="mt-0.5 text-xs text-muted-foreground">{it.sub}</p>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
