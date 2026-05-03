@@ -13,6 +13,7 @@ import AdminLogin from "@/admin/pages/Login";
 import Forbidden from "@/admin/pages/Forbidden";
 import NoAccess from "@/admin/pages/NoAccess";
 import PlaceholderPage from "@/admin/pages/Stub";
+import Dashboard from "@/admin/dashboard/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -38,7 +39,7 @@ const App = () => (
                 </RequireAuth>
               }
             >
-              <Route path="/admin/dashboard" element={<PlaceholderPage title="Dashboard" />} />
+              <Route path="/admin/dashboard" element={<Dashboard />} />
               <Route path="/admin/reports" element={<PlaceholderPage title="Reportes PDF" />} />
             </Route>
 
