@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { submitSurvey } from "@/lib/api";
+import { getDeviceFingerprint } from "@/lib/fingerprint";
 
 type Option = { emoji: string; label: string; value: string };
 type Question = {
@@ -77,6 +80,8 @@ const Survey = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [comment, setComment] = useState("");
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const startedAtRef = useRef<number>(performance.now());
 
   const isQuestion = step < QUESTIONS.length;
   const currentQ = isQuestion ? QUESTIONS[step] : null;
@@ -99,8 +104,51 @@ const Survey = () => {
   };
 
   const handleNext = () => {
-    if (step < TOTAL_STEPS - 1) setStep((s) => s + 1);
-    else setDone(true);
+    if (step < TOTAL_STEPS - 1) {
+      setStep((s) => s + 1);
+    } else {
+      void finalizeSubmission(comment);
+    }
+  };
+
+  const finalizeSubmission = async (finalComment: string) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const q1 = Number(answers["q1"]);
+      const q2 = Number(answers["q2"]);
+      const q3 = answers["q3"] as "peor" | "igual" | "mejor";
+      const q4 = answers["q4"] as "no" | "tal_vez" | "si";
+      await submitSurvey({
+        q1,
+        q2,
+        q3,
+        q4,
+        comment: finalComment.trim() ? finalComment.trim() : null,
+        response_time_ms: Math.round(performance.now() - startedAtRef.current),
+        device_fingerprint: getDeviceFingerprint(),
+      });
+      setDone(true);
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "COOLDOWN_ACTIVE") {
+        toast("Ya registramos tu opinión 🙏", {
+          description: "Vuelve a votar más tarde.",
+        });
+        navigate("/");
+      } else if (code === "OUTSIDE_HOURS") {
+        toast("El comedor está cerrado ahora", {
+          description: "Las encuestas están disponibles de 12:00 a 15:00.",
+        });
+        navigate("/");
+      } else {
+        toast("No pudimos guardar tu encuesta", {
+          description: "Inténtalo de nuevo en un momento.",
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (done) {
@@ -199,8 +247,9 @@ const Survey = () => {
               variant="ghost"
               onClick={() => {
                 setComment("");
-                setDone(true);
+                void finalizeSubmission("");
               }}
+              disabled={submitting}
               className="h-16 rounded-2xl px-6 text-xl font-semibold"
             >
               Saltar
@@ -208,7 +257,7 @@ const Survey = () => {
           )}
           <Button
             onClick={handleNext}
-            disabled={!canNext}
+            disabled={!canNext || submitting}
             className={cn(
               "h-20 min-w-[220px] rounded-2xl bg-brand px-10 text-2xl font-bold text-brand-foreground shadow-lg shadow-brand/30 transition-transform",
               "hover:scale-105 hover:bg-brand active:scale-95",
