@@ -235,6 +235,50 @@ export default function Dashboard() {
 
   const todayWarn = respToday > 0 && respToday < QUORUM;
 
+  const generateInsights = async () => {
+    if (!isAdmin) return;
+    setInsightsLoading(true);
+    try {
+      const questions = [
+        { text: "Sabor (Q1)", average: avg(cleanSurveys.map((r) => r.question_1_score)) },
+        { text: "Limpieza (Q2)", average: avg(cleanSurveys.map((r) => r.question_2_score)) },
+        {
+          text: "Tendencia vs ayer (Q3)",
+          average: avg(cleanSurveys.map((r) => trendToScore(r.question_3_trend))),
+        },
+        {
+          text: "Recomendación (Q4)",
+          average: avg(cleanSurveys.map((r) => recommendToScore(r.question_4_recommend))),
+        },
+      ];
+      const topComments = cleanSurveys
+        .filter((r) => r.comment && r.comment_status !== "deleted")
+        .slice(0, 20)
+        .map((r) => ({ text: r.comment ?? "", date: ymd(r.created_at) }));
+      const bottomDays = dayBuckets.map((b) => ({ date: b.day, avgScore: b.score }));
+
+      const { data, error } = await supabase.functions.invoke("generate-insights", {
+        body: {
+          periodStart: ymd(range.from),
+          periodEnd: ymd(range.to),
+          totalResponses: filtered.length,
+          validResponses: cleanSurveys.length,
+          questions,
+          topComments,
+          bottomDays,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setInsights(data as any);
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "No se pudo generar el análisis IA");
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
