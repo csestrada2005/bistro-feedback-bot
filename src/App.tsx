@@ -3,10 +3,12 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelmetProvider } from "react-helmet-async";
 
 import { AuthProvider } from "@/admin/auth/AuthProvider";
 import { RequireAuth } from "@/admin/auth/RequireAuth";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import LandingPage from "@/app/page";
 import LoginPage from "@/app/login/page";
@@ -23,7 +25,9 @@ import NoAccess from "@/admin/pages/NoAccess";
 const queryClient = new QueryClient();
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
+    <HelmetProvider>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -56,7 +60,9 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </HelmetProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
