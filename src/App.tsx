@@ -10,7 +10,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 
 import LandingPage from "@/app/page";
 import LoginPage from "@/app/login/page";
-import PublicSurveyPage from "@/app/public-survey/page";
+import PublicSurveyPage from "@/app/public-survey/[slug]/page";
 import NotFoundPage from "@/app/not-found/page";
 import DashboardPage from "@/app/admin/dashboard/page";
 import QuestionsPage from "@/app/admin/questions/page";
