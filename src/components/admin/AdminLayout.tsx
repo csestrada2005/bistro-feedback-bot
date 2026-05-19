@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { AdminSidebar } from "./AdminSidebar";
+import { Helmet } from "react-helmet-async";
 
 const TITLES: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
@@ -14,6 +15,10 @@ export function AdminLayout() {
   const title = TITLES[pathname] ?? "Admin";
   return (
     <div className="flex min-h-screen w-full bg-background">
+      <Helmet>
+        <title>{title} · Main Catering</title>
+        <meta name="description" content={`${title} · Panel administrador de Main Catering.`} />
+      </Helmet>
       <AdminSidebar />
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 items-center border-b border-border bg-card px-6 pl-16 md:pl-6">
