@@ -1,15 +1,15 @@
 import { Navigate, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useAuth, type AdminRole } from "./AuthProvider";
 import { Loader2 } from "lucide-react";
+import { useAuth, type AdminRol } from "./AuthProvider";
 
 type Props = {
   children: ReactNode;
-  allow?: AdminRole[]; // undefined → any authenticated role
+  allow?: AdminRol[];
 };
 
 export function RequireAuth({ children, allow }: Props) {
-  const { loading, session, role } = useAuth();
+  const { loading, session, profile } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -24,11 +24,11 @@ export function RequireAuth({ children, allow }: Props) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  if (!role) {
+  if (!profile) {
     return <Navigate to="/admin/no-access" replace />;
   }
 
-  if (allow && !allow.includes(role)) {
+  if (allow && !allow.includes(profile.rol)) {
     return <Navigate to="/admin/forbidden" replace />;
   }
 
