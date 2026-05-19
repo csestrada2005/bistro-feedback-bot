@@ -365,6 +365,7 @@ export default function DashboardPage() {
     if (!reporteId) return;
     setPdfLoading(true);
     try {
+      const { downloadReportPdf } = await import("@/lib/pdf/generateReportPdf");
       await downloadReportPdf(reporteId);
       toast.success("Reporte descargado");
     } catch (e) {
