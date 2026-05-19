@@ -1,0 +1,10 @@
+export default function ComedoresPage() {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
+      <h2 className="text-2xl font-bold text-foreground">Comedores</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Layout listo. Contenido pendiente.
+      </p>
+    </div>
+  );
+}

@@ -11,9 +11,9 @@ All colors MUST be HSL.
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;
 
-    --brand: 224 76% 40%;
+    --brand: 226 71% 40%;
     --brand-foreground: 0 0% 100%;
-    --brand-soft: 224 100% 97%;
+    --brand-soft: 226 100% 97%;
 
     --success: 160 84% 39%;
     --warning: 38 92% 50%;
@@ -25,7 +25,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 224 76% 40%;
+    --primary: 226 71% 40%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
