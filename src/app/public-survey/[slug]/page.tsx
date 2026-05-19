@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { KioskLayout } from "@/components/survey/KioskLayout";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -32,17 +39,22 @@ const initial = (): AnswerMap => ({});
 
 export default function PublicSurveyPage() {
   const { slug = "" } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [comedor, setComedor] = useState<Comedor | null>(null);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
-  const [step, setStep] = useState(0); // 0 welcome, 1..N pregunta index, N+1 thanks
+  const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>(initial);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoTaps, setDemoTaps] = useState(0);
+  const [allComedores, setAllComedores] = useState<Comedor[]>([]);
 
   useEffect(() => {
     void (async () => {
+      setLoading(true);
       const { data: com } = await supabase
         .from("comedores")
         .select("id, slug, nombre")
@@ -64,6 +76,34 @@ export default function PublicSurveyPage() {
       setLoading(false);
     })();
   }, [slug]);
+
+  useEffect(() => {
+    if (!demoOpen || allComedores.length > 0) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("comedores")
+        .select("id, slug, nombre")
+        .eq("activo", true)
+        .order("nombre");
+      setAllComedores((data ?? []) as Comedor[]);
+    })();
+  }, [demoOpen, allComedores.length]);
+
+  useEffect(() => {
+    if (demoTaps === 0) return;
+    const t = setTimeout(() => setDemoTaps(0), 1800);
+    return () => clearTimeout(t);
+  }, [demoTaps]);
+
+  const handleLogoTap = () => {
+    const next = demoTaps + 1;
+    if (next >= 5) {
+      setDemoTaps(0);
+      setDemoOpen(true);
+    } else {
+      setDemoTaps(next);
+    }
+  };
 
   const total = preguntas.length;
 
@@ -106,7 +146,7 @@ export default function PublicSurveyPage() {
         <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
           <h1 className="text-5xl font-extrabold text-foreground">Comedor no encontrado</h1>
           <p className="mt-4 text-xl text-muted-foreground">
-            El enlace no corresponde a ningun comedor activo.
+            El enlace no corresponde a ningún comedor activo.
           </p>
           <Link to="/" className="mt-8 text-base text-brand underline">
             Volver al inicio
@@ -159,7 +199,7 @@ export default function PublicSurveyPage() {
       setDone(true);
     } catch (err) {
       console.error(err);
-      toast.error("No pudimos guardar la encuesta. Intentalo de nuevo.");
+      toast.error("No pudimos guardar la encuesta. Inténtalo de nuevo.");
     } finally {
       setSubmitting(false);
     }
@@ -175,15 +215,15 @@ export default function PublicSurveyPage() {
 
   return (
     <KioskLayout>
-      <div className="flex items-center justify-between px-8 pt-6">
-        <div className="w-12">
+      <div className="flex items-center justify-between px-6 pt-4 sm:px-8 sm:pt-6">
+        <div className="w-14">
           {step > 0 && !done && (
             <button
               onClick={handleBack}
-              aria-label="Atras"
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"
+              aria-label="Pregunta anterior"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"
             >
-              <ArrowLeft className="h-6 w-6" />
+              <ArrowLeft className="h-7 w-7" />
             </button>
           )}
         </div>
@@ -202,22 +242,32 @@ export default function PublicSurveyPage() {
             </>
           )}
         </div>
-        <div className="w-12" />
+        <div className="w-14" />
       </div>
 
-      <section key={step} className="flex flex-1 animate-in fade-in duration-200 flex-col items-center justify-center px-8 pb-10">
+      <section
+        key={step}
+        className="flex flex-1 animate-in fade-in duration-200 flex-col items-center justify-center px-6 pb-8 sm:px-8 sm:pb-10"
+      >
         {isWelcome && !done && (
           <div className="flex flex-col items-center text-center">
-            <span className="mb-6 inline-flex items-center rounded-full bg-brand-soft px-5 py-2 text-lg font-semibold text-brand">
+            <button
+              type="button"
+              onClick={handleLogoTap}
+              aria-label="Main Catering"
+              className="mb-6 inline-flex items-center rounded-full bg-brand-soft px-5 py-2 text-lg font-semibold text-brand select-none"
+            >
               Main Catering
-            </span>
-            <h1 className="text-6xl font-extrabold leading-tight text-foreground">{comedor.nombre}</h1>
+            </button>
+            <h1 className="text-5xl font-extrabold leading-tight text-foreground sm:text-6xl">
+              {comedor.nombre}
+            </h1>
             <p className="mt-6 max-w-xl text-2xl text-muted-foreground">
-              Tu opinion nos ayuda a mejorar. Solo te tomara 2 minutos.
+              Tu opinión nos ayuda a mejorar. Solo te tomará 2 minutos.
             </p>
             <Button
               onClick={() => setStep(1)}
-              className="mt-14 h-24 w-[28rem] rounded-2xl bg-brand text-3xl font-bold text-brand-foreground shadow-xl shadow-brand/30 hover:bg-brand active:scale-95"
+              className="mt-14 h-24 w-[28rem] max-w-full rounded-2xl bg-brand text-3xl font-bold text-brand-foreground shadow-xl shadow-brand/30 hover:bg-brand active:scale-95"
             >
               Empezar encuesta
             </Button>
@@ -226,12 +276,12 @@ export default function PublicSurveyPage() {
 
         {isQuestion && currentQ && (
           <div className="w-full max-w-5xl">
-            <h2 className="text-center text-5xl font-extrabold leading-tight text-foreground">
+            <h2 className="text-center text-4xl font-extrabold leading-tight text-foreground sm:text-5xl">
               {currentQ.texto}
             </h2>
 
             {currentQ.tipo === "escala_5" && (
-              <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-5">
+              <div className="mt-10 grid grid-cols-5 gap-2 sm:mt-12 sm:gap-4">
                 {SCALE_OPTIONS.map((opt) => {
                   const selected = answers[currentQ.id]?.numerico === opt.value;
                   return (
@@ -241,15 +291,16 @@ export default function PublicSurveyPage() {
                         setAnswers((a) => ({ ...a, [currentQ.id]: { numerico: opt.value } }));
                         setTimeout(() => setStep((s) => s + 1), 120);
                       }}
+                      aria-label={`${opt.value} ${opt.label}`}
                       className={cn(
-                        "flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-3xl border-2 p-4 text-center transition-transform active:scale-95",
+                        "flex min-h-[140px] flex-col items-center justify-center gap-1 rounded-2xl border-2 p-2 text-center transition-transform active:scale-95 sm:min-h-[180px] sm:gap-2 sm:rounded-3xl sm:p-4",
                         opt.classes,
                         selected && "ring-4 ring-offset-2 ring-foreground/30"
                       )}
                     >
-                      <span className="text-5xl">{opt.emoji}</span>
-                      <span className="text-4xl font-extrabold">{opt.value}</span>
-                      <span className="text-lg font-bold">{opt.label}</span>
+                      <span className="text-3xl sm:text-5xl">{opt.emoji}</span>
+                      <span className="text-2xl font-extrabold sm:text-4xl">{opt.value}</span>
+                      <span className="hidden text-sm font-bold sm:block sm:text-lg">{opt.label}</span>
                     </button>
                   );
                 })}
@@ -278,7 +329,7 @@ export default function PublicSurveyPage() {
                             : "border-border bg-card text-foreground hover:border-brand/40"
                         )}
                       >
-                        {val ? "Si" : "No"}
+                        {val ? "Sí" : "No"}
                       </button>
                     );
                   })}
@@ -286,7 +337,7 @@ export default function PublicSurveyPage() {
                 {answers[currentQ.id]?.booleano === true && (
                   <div className="mt-10 animate-in fade-in duration-200">
                     <label className="block text-2xl font-semibold text-foreground">
-                      Cuentanos que paso
+                      Cuéntanos qué pasó
                     </label>
                     <Textarea
                       value={answers[currentQ.id]?.texto ?? ""}
@@ -328,7 +379,7 @@ export default function PublicSurveyPage() {
                             next[i] = e.target.value.slice(0, 140);
                             setAnswers((a) => ({ ...a, [currentQ.id]: { textos: next } }));
                           }}
-                          placeholder={`Opcion ${i + 1}`}
+                          placeholder={`Opción ${i + 1}`}
                           className="h-16 rounded-2xl border-2 px-5 text-xl"
                         />
                       </div>
@@ -373,14 +424,23 @@ export default function PublicSurveyPage() {
 
         {done && (
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-44 w-44 items-center justify-center rounded-full bg-emerald-100 animate-in zoom-in-50 duration-500">
-              <Check className="h-28 w-28 text-emerald-600" strokeWidth={3} />
+            <div className="flex h-40 w-40 items-center justify-center rounded-full bg-emerald-100 animate-in zoom-in-50 duration-500">
+              <Check className="h-24 w-24 text-emerald-600" strokeWidth={3} />
             </div>
-            <h1 className="mt-10 text-6xl font-extrabold text-foreground">Gracias por tu opinion!</h1>
+            <h1 className="mt-8 text-5xl font-extrabold text-foreground sm:text-6xl">
+              ¡Gracias por tu opinión!
+            </h1>
             <p className="mt-4 max-w-xl text-2xl text-muted-foreground">
-              Tu respuesta ayuda al equipo de Main Catering a mejorar todos los dias.
+              Tu respuesta ayuda al equipo de Main Catering a mejorar todos los días.
             </p>
-            <p className="mt-10 text-lg text-muted-foreground">Reiniciando en {countdown}s...</p>
+            <div
+              className="mt-10 flex h-24 w-24 items-center justify-center rounded-full border-4 border-brand text-3xl font-extrabold text-brand"
+              aria-live="polite"
+              aria-label={`Reiniciando en ${countdown} segundos`}
+            >
+              {countdown}
+            </div>
+            <p className="mt-3 text-base text-muted-foreground">Reiniciando…</p>
           </div>
         )}
       </section>
@@ -397,6 +457,36 @@ export default function PublicSurveyPage() {
           {comedor.nombre}
         </footer>
       )}
+
+      <Dialog open={demoOpen} onOpenChange={setDemoOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modo demo</DialogTitle>
+            <DialogDescription>
+              Cambia de comedor para presentaciones. Esto reiniciará la encuesta actual.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-1 overflow-y-auto">
+            {allComedores.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+            ) : (
+              allComedores.map((c) => (
+                <Button
+                  key={c.id}
+                  variant={c.id === comedor.id ? "default" : "outline"}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setDemoOpen(false);
+                    if (c.slug !== comedor.slug) navigate(`/survey/${c.slug}`);
+                  }}
+                >
+                  {c.nombre}
+                </Button>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </KioskLayout>
   );
 }
