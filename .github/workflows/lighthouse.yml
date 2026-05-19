@@ -3,6 +3,8 @@ name: Lighthouse CI - /survey/:slug
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       url:
@@ -15,6 +17,9 @@ jobs:
     name: Audit móvil (FCP, LCP, Load)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -39,14 +44,84 @@ jobs:
           echo "Auditando: $APP_URL/survey/sp"
 
       - name: Run Lighthouse CI
+        id: lhci
         run: lhci autorun --config=./lighthouserc.json
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
       - name: Upload Lighthouse reports
         if: always()
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: lighthouse-reports
           path: .lighthouseci/
           retention-days: 30
+
+      - name: Build PR summary
+        if: always() && github.event_name == 'pull_request'
+        id: summary
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = '.lighthouseci';
+
+          const out = (k, v) => fs.appendFileSync(process.env.GITHUB_OUTPUT, `${k}<<__EOF__\n${v}\n__EOF__\n`);
+
+          if (!fs.existsSync(dir)) {
+            out('body', '⚠️ Lighthouse CI no generó reportes.');
+            process.exit(0);
+          }
+
+          // Links públicos a reportes subidos
+          let links = [];
+          const linksFile = path.join(dir, 'links.json');
+          if (fs.existsSync(linksFile)) {
+            const data = JSON.parse(fs.readFileSync(linksFile, 'utf8'));
+            links = Object.entries(data).map(([url, report]) => ({ url, report }));
+          }
+
+          // Métricas (mediana) desde manifest.json
+          let metricsRows = '';
+          const manifestFile = path.join(dir, 'manifest.json');
+          if (fs.existsSync(manifestFile)) {
+            const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+            const medians = manifest.filter(m => m.isRepresentativeRun);
+            for (const run of medians) {
+              const lhr = JSON.parse(fs.readFileSync(run.jsonPath, 'utf8'));
+              const a = lhr.audits;
+              const fmt = (id) => a[id]?.displayValue || '—';
+              const perf = Math.round((lhr.categories.performance?.score || 0) * 100);
+              metricsRows += `| \`${lhr.finalUrl}\` | ${perf} | ${fmt('first-contentful-paint')} | ${fmt('largest-contentful-paint')} | ${fmt('total-blocking-time')} | ${fmt('speed-index')} | ${fmt('interactive')} |\n`;
+            }
+          }
+
+          const artifactUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}#artifacts`;
+
+          const linksMd = links.length
+            ? links.map(l => `- [${l.url}](${l.report})`).join('\n')
+            : '_(sin enlaces públicos disponibles)_';
+
+          const body = `### 🚦 Lighthouse CI — \`/survey/:slug\`
+
+| URL | Perf | FCP | LCP | TBT | SI | TTI |
+|---|---|---|---|---|---|---|
+${metricsRows || '| _(sin métricas)_ | | | | | | |'}
+
+**Reportes públicos (temporales):**
+${linksMd}
+
+📦 **Artifact completo:** [lighthouse-reports](${artifactUrl}) _(retención 30 días)_
+
+<sub>Generado por commit \`${process.env.GITHUB_SHA?.slice(0,7)}\` · run [#${process.env.GITHUB_RUN_NUMBER}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})</sub>`;
+
+          out('body', body);
+          EOF
+
+      - name: Comment PR with Lighthouse results
+        if: always() && github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: lighthouse-survey
+          message: ${{ steps.summary.outputs.body }}
