@@ -7,6 +7,7 @@ import {
   CalendarIcon,
   Download,
   Eye,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,6 +45,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 type Tipo = "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3";
@@ -94,6 +105,8 @@ export default function ResponsesPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [detail, setDetail] = useState<Row | null>(null);
+  const [toDelete, setToDelete] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Cargar comedores + preguntas (una vez)
   useEffect(() => {
@@ -277,6 +290,31 @@ export default function ResponsesPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
+  const handleDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      const { error: rErr } = await supabase
+        .from("respuestas")
+        .delete()
+        .eq("encuesta_id", toDelete.id);
+      if (rErr) throw rErr;
+      const { error: eErr } = await supabase
+        .from("encuestas")
+        .delete()
+        .eq("id", toDelete.id);
+      if (eErr) throw eErr;
+      toast.success("Encuesta eliminada");
+      setToDelete(null);
+      await load();
+    } catch (err) {
+      console.error(err);
+      toast.error("No se pudo eliminar la encuesta");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Filtros */}
@@ -394,9 +432,20 @@ export default function ResponsesPage() {
                     </TableCell>
                     <TableCell className="text-sm">{r.numPropuestas}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setDetail(r)}>
-                        <Eye className="mr-1 h-4 w-4" /> Ver detalle
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setDetail(r)}>
+                          <Eye className="mr-1 h-4 w-4" /> Ver detalle
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Eliminar encuesta"
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setToDelete(r)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -435,6 +484,34 @@ export default function ResponsesPage() {
         preguntas={preguntas}
         comedorNombre={detail ? comedorById.get(detail.comedor_id)?.nombre ?? "—" : ""}
       />
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar esta encuesta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará la encuesta{" "}
+              <span className="font-mono">{toDelete?.id.slice(-6)}</span> del{" "}
+              {toDelete ? format(new Date(toDelete.fecha), "dd/MM/yyyy HH:mm") : ""} y todas sus
+              respuestas. Esta acción no se puede deshacer. Úsalo solo para limpiar datos de
+              prueba o verificación.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Eliminando…" : "Sí, eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
