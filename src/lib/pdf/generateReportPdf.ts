@@ -139,7 +139,9 @@ export async function buildReportDataFromReporteId(reporteId: string): Promise<R
 
 export async function downloadReportPdf(reporteId: string) {
   const data = await buildReportDataFromReporteId(reporteId);
-  const blob = await pdf(React.createElement(ReportTemplate, { data })).toBlob();
+  // @react-pdf/renderer's pdf() expects a <Document>; our wrapper returns one.
+  const element = React.createElement(ReportTemplate, { data });
+  const blob = await pdf(element as unknown as Parameters<typeof pdf>[0]).toBlob();
   const slug =
     (await supabase
       .from("comedores")
