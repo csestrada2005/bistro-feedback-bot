@@ -27,9 +27,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY no configurada" }), {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY no configurada" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -82,32 +82,40 @@ ${preguntasExistentes.length ? preguntasExistentes.map((p, i) => `${i + 1}. ${p}
 
 Sugiere entre 3 y 6 preguntas nuevas en JSON estricto.`;
 
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
+        model: "google/gemini-3-flash-preview",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
       }),
     });
 
     if (!resp.ok) {
       const errText = await resp.text();
-      console.error("Anthropic error", resp.status, errText);
-      return new Response(JSON.stringify({ error: "Error en proveedor de IA" }), {
-        status: 502,
+      console.error("Lovable AI error", resp.status, errText);
+      const status = resp.status === 429 ? 429 : resp.status === 402 ? 402 : 502;
+      const msg =
+        resp.status === 429
+          ? "Demasiadas solicitudes. Intenta en un minuto."
+          : resp.status === 402
+          ? "Se agotaron los créditos de IA. Recarga en Ajustes de Lovable Cloud."
+          : "Error en proveedor de IA";
+      return new Response(JSON.stringify({ error: msg }), {
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await resp.json();
-    const raw = data?.content?.[0]?.text ?? "";
+    const raw = data?.choices?.[0]?.message?.content ?? "";
     // Extraer JSON aunque venga rodeado de texto
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) {

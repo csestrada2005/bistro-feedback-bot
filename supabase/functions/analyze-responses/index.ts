@@ -34,27 +34,30 @@ Reglas:
 - Lenguaje claro, español neutro, orientado a acción.
 - Si los datos son contradictorios, marca sentimiento como "mixto".`;
 
-async function callClaude(apiKey: string, userPrompt: string) {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+async function callLovableAI(apiKey: string, userPrompt: string) {
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
+      model: "google/gemini-2.5-pro",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
     }),
   });
   if (!resp.ok) {
     const t = await resp.text();
-    throw new Error(`Anthropic ${resp.status}: ${t}`);
+    const err = new Error(`Lovable AI ${resp.status}: ${t}`) as Error & { status?: number };
+    err.status = resp.status;
+    throw err;
   }
   const data = await resp.json();
-  const raw = data?.content?.[0]?.text ?? "";
+  const raw = data?.choices?.[0]?.message?.content ?? "";
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Sin JSON parseable");
   return JSON.parse(match[0]);
@@ -64,9 +67,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY no configurada" }), {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY no configurada" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -221,16 +224,27 @@ Deno.serve(async (req) => {
       2
     )}`;
 
-    // Llamar Claude con 1 retry si JSON viene mal
+    // Llamar IA con 1 retry si JSON viene mal
     let analisis;
     try {
-      analisis = await callClaude(apiKey, userPrompt);
+      analisis = await callLovableAI(apiKey, userPrompt);
     } catch (e) {
-      console.error("Primer intento Claude falló", e);
+      console.error("Primer intento IA falló", e);
+      const status = (e as { status?: number })?.status;
+      if (status === 429 || status === 402) {
+        const msg =
+          status === 429
+            ? "Demasiadas solicitudes a la IA. Intenta en un minuto."
+            : "Se agotaron los créditos de IA. Recarga en Ajustes de Lovable Cloud.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       try {
-        analisis = await callClaude(apiKey, userPrompt);
+        analisis = await callLovableAI(apiKey, userPrompt);
       } catch (e2) {
-        console.error("Segundo intento Claude falló", e2);
+        console.error("Segundo intento IA falló", e2);
         return new Response(JSON.stringify({ error: "La IA no pudo generar el análisis" }), {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
