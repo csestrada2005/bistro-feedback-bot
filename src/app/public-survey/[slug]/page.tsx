@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { trackSurveyRum } from "@/lib/rum";
 
 type Pregunta = {
   id: string;
@@ -74,6 +75,8 @@ export default function PublicSurveyPage() {
         .order("orden", { ascending: true });
       setPreguntas((qs ?? []) as Pregunta[]);
       setLoading(false);
+      // RUM: una sola vez por carga, después de identificar el comedor
+      trackSurveyRum({ slug, comedorId: (com as Comedor).id });
     })();
   }, [slug]);
 
