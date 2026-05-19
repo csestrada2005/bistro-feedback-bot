@@ -15,7 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { downloadReportPdf } from "@/lib/pdf/generateReportPdf";
 
 type Row = {
   id: string;
@@ -80,6 +79,7 @@ export default function ReportsPage() {
   const handleDownload = async (id: string) => {
     setDownloadingId(id);
     try {
+      const { downloadReportPdf } = await import("@/lib/pdf/generateReportPdf");
       await downloadReportPdf(id);
       toast.success("Reporte descargado");
     } catch (e) {
