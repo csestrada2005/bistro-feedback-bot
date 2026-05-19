@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,10 +13,19 @@ export default function LoginPage() {
   const { session, profile, loading, signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [params, setParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (params.get("expired") === "1") {
+      toast.info("Tu sesión expiró. Vuelve a iniciar sesión.");
+      params.delete("expired");
+      setParams(params, { replace: true });
+    }
+  }, [params, setParams]);
 
   if (!loading && session && profile) {
     const from = (location.state as { from?: string } | null)?.from;
@@ -29,14 +39,14 @@ export default function LoginPage() {
     try {
       const result = await signIn(email.trim(), password);
       if (result.error) {
-        setError("Correo o contrasena incorrectos.");
-        toast.error("Correo o contrasena incorrectos.");
+        setError("Correo o contraseña incorrectos.");
+        toast.error("Correo o contraseña incorrectos.");
         return;
       }
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
       if (!uid) {
-        setError("No pudimos verificar tu sesion.");
+        setError("No pudimos verificar tu sesión.");
         return;
       }
       const { data: row } = await supabase
@@ -49,7 +59,7 @@ export default function LoginPage() {
         setError("Tu cuenta no tiene acceso al panel. Contacta al administrador.");
         return;
       }
-      toast.success("Sesion iniciada");
+      toast.success("Sesión iniciada");
       navigate("/admin/dashboard", { replace: true });
     } finally {
       setSubmitting(false);
@@ -71,7 +81,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Correo electronico</Label>
+            <Label htmlFor="email">Correo electrónico</Label>
             <Input
               id="email"
               type="email"
@@ -83,7 +93,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Contrasena</Label>
+            <Label htmlFor="password">Contraseña</Label>
             <Input
               id="password"
               type="password"
@@ -100,9 +110,9 @@ export default function LoginPage() {
             </p>
           )}
 
-          <Button type="submit" className="w-full" disabled={submitting}>
+          <Button type="submit" className="w-full" disabled={submitting || !email.trim() || !password}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Iniciar sesion
+            Iniciar sesión
           </Button>
         </form>
       </div>
