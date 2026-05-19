@@ -784,3 +784,156 @@ function DashboardSkeleton() {
     </div>
   );
 }
+
+const SEVERIDAD_STYLE: Record<"alta" | "media" | "baja", string> = {
+  alta: "border-destructive/40 bg-destructive/5",
+  media: "border-yellow-500/40 bg-yellow-500/5",
+  baja: "border-border bg-card",
+};
+const PRIORIDAD_BADGE: Record<"alta" | "media" | "baja", "destructive" | "secondary" | "outline"> = {
+  alta: "destructive",
+  media: "secondary",
+  baja: "outline",
+};
+const SENTIMIENTO_STYLE: Record<string, string> = {
+  positivo: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  neutro: "bg-muted text-muted-foreground",
+  negativo: "bg-destructive/15 text-destructive",
+  mixto: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
+};
+
+function AnalysisView({ analisis }: { analisis: AnalisisIA }) {
+  return (
+    <div className="space-y-6">
+      {/* Resumen ejecutivo */}
+      <section className="rounded-xl border-l-4 border-l-primary border border-border bg-primary/5 p-5">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+          Resumen ejecutivo
+        </h3>
+        <div className="space-y-1 text-sm">
+          {analisis.resumenEjecutivo.split("\n").map((line, i) => {
+            const t = line.replace(/^[-*]\s*/, "").trim();
+            if (!t) return null;
+            return (
+              <div key={i} className="flex gap-2">
+                <span className="text-primary">•</span>
+                <span>{t}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Sentimiento */}
+      <section className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">Sentimiento general:</span>
+        <span
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-semibold capitalize",
+            SENTIMIENTO_STYLE[analisis.sentimientoComentarios] ?? SENTIMIENTO_STYLE.neutro
+          )}
+        >
+          {analisis.sentimientoComentarios}
+        </span>
+      </section>
+
+      {/* Fortalezas / Áreas */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+            Fortalezas
+          </h3>
+          {analisis.fortalezas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin fortalezas identificadas.</p>
+          ) : (
+            <ul className="space-y-3">
+              {analisis.fortalezas.map((f, i) => (
+                <li key={i} className="rounded-lg bg-card p-3">
+                  <p className="text-sm font-semibold">{f.titulo}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{f.evidencia}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-border p-5">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground">
+            Áreas de oportunidad
+          </h3>
+          {analisis.areasOportunidad.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin áreas detectadas.</p>
+          ) : (
+            <ul className="space-y-3">
+              {analisis.areasOportunidad.map((a, i) => (
+                <li
+                  key={i}
+                  className={cn("rounded-lg border p-3", SEVERIDAD_STYLE[a.severidad] ?? "")}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{a.titulo}</p>
+                    <Badge variant={PRIORIDAD_BADGE[a.severidad] ?? "outline"} className="capitalize">
+                      {a.severidad}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{a.evidencia}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {/* Recomendaciones */}
+      <section className="rounded-xl border border-border bg-card p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground">
+          Recomendaciones
+        </h3>
+        {analisis.recomendaciones.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin recomendaciones.</p>
+        ) : (
+          <ol className="space-y-3">
+            {analisis.recomendaciones.map((r, i) => (
+              <li key={i} className="flex gap-3 rounded-lg border border-border p-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{r.accion}</p>
+                    <Badge variant={PRIORIDAD_BADGE[r.prioridad] ?? "outline"} className="capitalize">
+                      {r.prioridad}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Impacto esperado: {r.impactoEsperado}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      {/* Citas destacadas */}
+      {analisis.citasDestacadas.length > 0 && (
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground">
+            Citas destacadas
+          </h3>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {analisis.citasDestacadas.map((c, i) => (
+              <blockquote
+                key={i}
+                className="rounded-xl border border-border bg-muted/30 p-4 text-sm italic text-foreground"
+              >
+                <Quote className="mb-2 h-4 w-4 text-muted-foreground" />
+                "{c}"
+              </blockquote>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
