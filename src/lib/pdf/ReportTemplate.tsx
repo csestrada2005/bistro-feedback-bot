@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Svg,
   Rect,
-  Line,
 } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -565,7 +564,7 @@ function MetodologiaPage({ data }: { data: ReportData }) {
 
       <View style={[s.card, { padding: 14 }]}>
         <Text style={s.h3}>Metodología</Text>
-        <Line />
+        <View style={s.divider} />
         <Text style={{ fontSize: 10, lineHeight: 1.6, marginTop: 6 }}>
           Las respuestas fueron levantadas directamente en el comedor mediante una encuesta digital
           anónima, disponible para los comensales al finalizar cada servicio. Durante el período
@@ -580,7 +579,7 @@ function MetodologiaPage({ data }: { data: ReportData }) {
 
       <View style={[s.card, { padding: 14, marginTop: 8 }]}>
         <Text style={s.h3}>Contacto</Text>
-        <Line />
+        <View style={s.divider} />
         <Text style={{ fontSize: 10, marginTop: 6 }}>
           <Text style={{ fontFamily: "Helvetica-Bold" }}>Main Catering</Text>
         </Text>
