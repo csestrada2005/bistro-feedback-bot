@@ -117,7 +117,7 @@ export type Database = {
           fecha_hasta: string
           generado_por: string | null
           id: string
-          url_pdf: string
+          url_pdf: string | null
         }
         Insert: {
           analisis_ia?: Json | null
@@ -127,7 +127,7 @@ export type Database = {
           fecha_hasta: string
           generado_por?: string | null
           id?: string
-          url_pdf: string
+          url_pdf?: string | null
         }
         Update: {
           analisis_ia?: Json | null
@@ -137,7 +137,7 @@ export type Database = {
           fecha_hasta?: string
           generado_por?: string | null
           id?: string
-          url_pdf?: string
+          url_pdf?: string | null
         }
         Relationships: [
           {

@@ -23,6 +23,9 @@ import {
   FileDown,
   Inbox,
   Lightbulb,
+  Loader2,
+  Quote,
+  RefreshCw,
   UtensilsCrossed,
 } from "lucide-react";
 
@@ -59,6 +62,15 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+type AnalisisIA = {
+  resumenEjecutivo: string;
+  fortalezas: { titulo: string; evidencia: string }[];
+  areasOportunidad: { titulo: string; evidencia: string; severidad: "alta" | "media" | "baja" }[];
+  recomendaciones: { accion: string; impactoEsperado: string; prioridad: "alta" | "media" | "baja" }[];
+  sentimientoComentarios: "positivo" | "neutro" | "negativo" | "mixto";
+  citasDestacadas: string[];
+};
 
 type Comedor = { id: string; nombre: string; slug: string; activo: boolean };
 type Pregunta = {
@@ -224,6 +236,10 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>(emptyStats);
   const [prevStats, setPrevStats] = useState<Stats>(emptyStats);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalisis, setAiAnalisis] = useState<AnalisisIA | null>(null);
+  const [reporteId, setReporteId] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Cargar comedores
   useEffect(() => {
@@ -302,6 +318,69 @@ export default function DashboardPage() {
     if (comedorId) void load(comedorId, desde, hasta);
   }, [comedorId, desde, hasta, load]);
 
+  // Reset análisis al cambiar filtros
+  useEffect(() => {
+    setAiAnalisis(null);
+    setReporteId(null);
+  }, [comedorId, desde, hasta]);
+
+  const runAnalysis = useCallback(async () => {
+    if (!comedorId) return;
+    setAiOpen(true);
+    setAiLoading(true);
+    setAiAnalisis(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-responses", {
+        body: {
+          comedorId,
+          fechaDesde: startOfDay(desde).toISOString(),
+          fechaHasta: addDays(startOfDay(hasta), 1).toISOString(),
+        },
+      });
+      if (error) {
+        const msg =
+          (error as { context?: { error?: string } })?.context?.error ?? error.message;
+        toast.error(msg || "No pudimos analizar las respuestas");
+        setAiOpen(false);
+        return;
+      }
+      if (!data?.analisis) {
+        toast.error(data?.error || "Respuesta inválida");
+        setAiOpen(false);
+        return;
+      }
+      setAiAnalisis(data.analisis);
+      setReporteId(data.reporteId ?? null);
+      toast.success("Análisis listo");
+    } catch (e) {
+      console.error(e);
+      toast.error("No pudimos analizar las respuestas");
+      setAiOpen(false);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [comedorId, desde, hasta]);
+
+  const downloadPdf = async () => {
+    if (!reporteId) return;
+    setPdfLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-report-pdf", {
+        body: { reporteId },
+      });
+      if (error || !data?.url) {
+        toast.error("No pudimos generar el PDF");
+        return;
+      }
+      window.open(data.url, "_blank");
+    } catch (e) {
+      console.error(e);
+      toast.error("No pudimos generar el PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const aplicar = () => {
     setComedorId(pendingComedor);
     setDesde(pendingDesde);
@@ -344,19 +423,30 @@ export default function DashboardPage() {
               <Button onClick={aplicar}>Aplicar filtros</Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setAiOpen(true)}>
+              <Button variant="outline" onClick={runAnalysis} disabled={aiLoading || !comedorId}>
                 <Brain className="mr-2 h-4 w-4" /> Analizar con IA
               </Button>
-              <UiTooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0}>
-                    <Button variant="outline" disabled>
-                      <FileDown className="mr-2 h-4 w-4" /> Descargar reporte PDF
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Disponible tras análisis con IA</TooltipContent>
-              </UiTooltip>
+              {reporteId ? (
+                <Button variant="outline" onClick={downloadPdf} disabled={pdfLoading}>
+                  {pdfLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="mr-2 h-4 w-4" />
+                  )}
+                  Descargar reporte PDF
+                </Button>
+              ) : (
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button variant="outline" disabled>
+                        <FileDown className="mr-2 h-4 w-4" /> Descargar reporte PDF
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Disponible tras análisis con IA</TooltipContent>
+                </UiTooltip>
+              )}
             </div>
           </div>
         </div>
@@ -511,15 +601,47 @@ export default function DashboardPage() {
         )}
 
         <Dialog open={aiOpen} onOpenChange={setAiOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5" /> Analizar con IA
+                <Brain className="h-5 w-5" /> Análisis con IA
               </DialogTitle>
-              <DialogDescription>Próximamente.</DialogDescription>
+              <DialogDescription>
+                Resumen ejecutivo generado a partir de las respuestas del rango seleccionado.
+              </DialogDescription>
             </DialogHeader>
-            <DialogFooter>
-              <Button onClick={() => setAiOpen(false)}>Cerrar</Button>
+
+            {aiLoading ? (
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-base font-medium">Analizando respuestas…</p>
+                <p className="text-sm text-muted-foreground">Esto toma entre 15 y 30 segundos.</p>
+              </div>
+            ) : aiAnalisis ? (
+              <AnalysisView analisis={aiAnalisis} />
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">Sin análisis.</p>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button variant="outline" onClick={() => setAiOpen(false)}>
+                Cerrar
+              </Button>
+              {aiAnalisis && !aiLoading && (
+                <>
+                  <Button variant="outline" onClick={runAnalysis}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Re-analizar
+                  </Button>
+                  <Button onClick={downloadPdf} disabled={pdfLoading || !reporteId}>
+                    {pdfLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileDown className="mr-2 h-4 w-4" />
+                    )}
+                    Descargar como PDF
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -659,6 +781,159 @@ function DashboardSkeleton() {
       </div>
       <Skeleton className="h-72 w-full rounded-xl" />
       <Skeleton className="h-64 w-full rounded-xl" />
+    </div>
+  );
+}
+
+const SEVERIDAD_STYLE: Record<"alta" | "media" | "baja", string> = {
+  alta: "border-destructive/40 bg-destructive/5",
+  media: "border-yellow-500/40 bg-yellow-500/5",
+  baja: "border-border bg-card",
+};
+const PRIORIDAD_BADGE: Record<"alta" | "media" | "baja", "destructive" | "secondary" | "outline"> = {
+  alta: "destructive",
+  media: "secondary",
+  baja: "outline",
+};
+const SENTIMIENTO_STYLE: Record<string, string> = {
+  positivo: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  neutro: "bg-muted text-muted-foreground",
+  negativo: "bg-destructive/15 text-destructive",
+  mixto: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
+};
+
+function AnalysisView({ analisis }: { analisis: AnalisisIA }) {
+  return (
+    <div className="space-y-6">
+      {/* Resumen ejecutivo */}
+      <section className="rounded-xl border-l-4 border-l-primary border border-border bg-primary/5 p-5">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+          Resumen ejecutivo
+        </h3>
+        <div className="space-y-1 text-sm">
+          {analisis.resumenEjecutivo.split("\n").map((line, i) => {
+            const t = line.replace(/^[-*]\s*/, "").trim();
+            if (!t) return null;
+            return (
+              <div key={i} className="flex gap-2">
+                <span className="text-primary">•</span>
+                <span>{t}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Sentimiento */}
+      <section className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">Sentimiento general:</span>
+        <span
+          className={cn(
+            "rounded-full px-4 py-1.5 text-sm font-semibold capitalize",
+            SENTIMIENTO_STYLE[analisis.sentimientoComentarios] ?? SENTIMIENTO_STYLE.neutro
+          )}
+        >
+          {analisis.sentimientoComentarios}
+        </span>
+      </section>
+
+      {/* Fortalezas / Áreas */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+            Fortalezas
+          </h3>
+          {analisis.fortalezas.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin fortalezas identificadas.</p>
+          ) : (
+            <ul className="space-y-3">
+              {analisis.fortalezas.map((f, i) => (
+                <li key={i} className="rounded-lg bg-card p-3">
+                  <p className="text-sm font-semibold">{f.titulo}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{f.evidencia}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-border p-5">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground">
+            Áreas de oportunidad
+          </h3>
+          {analisis.areasOportunidad.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin áreas detectadas.</p>
+          ) : (
+            <ul className="space-y-3">
+              {analisis.areasOportunidad.map((a, i) => (
+                <li
+                  key={i}
+                  className={cn("rounded-lg border p-3", SEVERIDAD_STYLE[a.severidad] ?? "")}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{a.titulo}</p>
+                    <Badge variant={PRIORIDAD_BADGE[a.severidad] ?? "outline"} className="capitalize">
+                      {a.severidad}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{a.evidencia}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      {/* Recomendaciones */}
+      <section className="rounded-xl border border-border bg-card p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground">
+          Recomendaciones
+        </h3>
+        {analisis.recomendaciones.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin recomendaciones.</p>
+        ) : (
+          <ol className="space-y-3">
+            {analisis.recomendaciones.map((r, i) => (
+              <li key={i} className="flex gap-3 rounded-lg border border-border p-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{r.accion}</p>
+                    <Badge variant={PRIORIDAD_BADGE[r.prioridad] ?? "outline"} className="capitalize">
+                      {r.prioridad}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Impacto esperado: {r.impactoEsperado}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      {/* Citas destacadas */}
+      {analisis.citasDestacadas.length > 0 && (
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-foreground">
+            Citas destacadas
+          </h3>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {analisis.citasDestacadas.map((c, i) => (
+              <blockquote
+                key={i}
+                className="rounded-xl border border-border bg-muted/30 p-4 text-sm italic text-foreground"
+              >
+                <Quote className="mb-2 h-4 w-4 text-muted-foreground" />
+                "{c}"
+              </blockquote>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

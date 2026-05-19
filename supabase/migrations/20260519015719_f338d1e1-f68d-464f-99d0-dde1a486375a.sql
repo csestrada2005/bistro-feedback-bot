@@ -1,0 +1,1 @@
+ALTER TABLE public.reportes ALTER COLUMN url_pdf DROP NOT NULL;
