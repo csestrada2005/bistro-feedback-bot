@@ -449,7 +449,7 @@ export default function DashboardPage() {
         {loading ? (
           <DashboardSkeleton />
         ) : stats.total === 0 ? (
-          <EmptyState />
+          <EmptyState slug={comedores.find((c) => c.id === comedorId)?.slug ?? ""} />
         ) : (
           <>
             {/* KPIs */}
