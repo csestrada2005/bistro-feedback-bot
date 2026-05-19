@@ -204,6 +204,65 @@ export type Database = {
           },
         ]
       }
+      rum_metrics: {
+        Row: {
+          comedor_id: string | null
+          connection_type: string | null
+          created_at: string
+          device_type: string | null
+          dom_interactive_ms: number | null
+          fcp_ms: number | null
+          id: string
+          lcp_ms: number | null
+          load_ms: number | null
+          slug: string
+          ttfb_ms: number | null
+          user_agent: string | null
+          viewport_h: number | null
+          viewport_w: number | null
+        }
+        Insert: {
+          comedor_id?: string | null
+          connection_type?: string | null
+          created_at?: string
+          device_type?: string | null
+          dom_interactive_ms?: number | null
+          fcp_ms?: number | null
+          id?: string
+          lcp_ms?: number | null
+          load_ms?: number | null
+          slug: string
+          ttfb_ms?: number | null
+          user_agent?: string | null
+          viewport_h?: number | null
+          viewport_w?: number | null
+        }
+        Update: {
+          comedor_id?: string | null
+          connection_type?: string | null
+          created_at?: string
+          device_type?: string | null
+          dom_interactive_ms?: number | null
+          fcp_ms?: number | null
+          id?: string
+          lcp_ms?: number | null
+          load_ms?: number | null
+          slug?: string
+          ttfb_ms?: number | null
+          user_agent?: string | null
+          viewport_h?: number | null
+          viewport_w?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rum_metrics_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usuarios: {
         Row: {
           comedor_id: string | null
