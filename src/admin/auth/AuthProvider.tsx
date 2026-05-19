@@ -57,9 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setTimeout(() => void loadProfile(newSession?.user?.id), 0);
+      if (event === "TOKEN_REFRESHED" && !newSession) {
+        // Sesión expirada
+        if (window.location.pathname.startsWith("/admin")) {
+          window.location.replace("/login?expired=1");
+        }
+      }
+      if (event === "SIGNED_OUT" && window.location.pathname.startsWith("/admin")) {
+        window.location.replace("/login");
+      }
     });
 
     void supabase.auth.getSession().then(async ({ data }) => {
