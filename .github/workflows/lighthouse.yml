@@ -1,0 +1,52 @@
+name: Lighthouse CI - /survey/:slug
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL base (sin /survey/...)"
+        required: false
+        default: ""
+
+jobs:
+  lhci:
+    name: Audit móvil (FCP, LCP, Load)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.14.x
+
+      - name: Inject app URL
+        env:
+          APP_URL: ${{ github.event.inputs.url || vars.LHCI_APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::Falta APP_URL. Define el repo variable LHCI_APP_URL (ej. https://miapp.lovable.app) o pásala en workflow_dispatch."
+            exit 1
+          fi
+          # Normaliza: quita slash final
+          APP_URL="${APP_URL%/}"
+          sed -i "s|https://APP_URL|$APP_URL|g" lighthouserc.json
+          echo "Auditando: $APP_URL/survey/sp"
+
+      - name: Run Lighthouse CI
+        run: lhci autorun --config=./lighthouserc.json
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 30
