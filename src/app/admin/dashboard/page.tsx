@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { downloadReportPdf } from "@/lib/pdf/generateReportPdf";
 
 type AnalisisIA = {
   resumenEjecutivo: string;
@@ -365,14 +366,8 @@ export default function DashboardPage() {
     if (!reporteId) return;
     setPdfLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-report-pdf", {
-        body: { reporteId },
-      });
-      if (error || !data?.url) {
-        toast.error("No pudimos generar el PDF");
-        return;
-      }
-      window.open(data.url, "_blank");
+      await downloadReportPdf(reporteId);
+      toast.success("Reporte descargado");
     } catch (e) {
       console.error(e);
       toast.error("No pudimos generar el PDF");
