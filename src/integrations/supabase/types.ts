@@ -14,294 +14,241 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_insights_cache: {
+      comedores: {
         Row: {
-          cache_key: string
+          activo: boolean
           created_at: string
-          expires_at: string
-          payload: Json
+          empresa_cliente: string
+          id: string
+          nombre: string
+          slug: string
         }
         Insert: {
-          cache_key: string
+          activo?: boolean
           created_at?: string
-          expires_at: string
-          payload: Json
+          empresa_cliente: string
+          id?: string
+          nombre: string
+          slug: string
         }
         Update: {
-          cache_key?: string
+          activo?: boolean
           created_at?: string
-          expires_at?: string
-          payload?: Json
+          empresa_cliente?: string
+          id?: string
+          nombre?: string
+          slug?: string
         }
         Relationships: []
       }
-      ai_usage: {
+      encuestas: {
         Row: {
-          completion_tokens: number | null
+          comedor_id: string
           created_at: string
-          error: string | null
-          function_name: string
+          fecha: string
           id: string
-          model: string | null
-          prompt_tokens: number | null
-          status: string
-          total_tokens: number | null
-          user_id: string | null
         }
         Insert: {
-          completion_tokens?: number | null
+          comedor_id: string
           created_at?: string
-          error?: string | null
-          function_name: string
+          fecha?: string
           id?: string
-          model?: string | null
-          prompt_tokens?: number | null
-          status: string
-          total_tokens?: number | null
-          user_id?: string | null
         }
         Update: {
-          completion_tokens?: number | null
+          comedor_id?: string
           created_at?: string
-          error?: string | null
-          function_name?: string
+          fecha?: string
           id?: string
-          model?: string | null
-          prompt_tokens?: number | null
-          status?: string
-          total_tokens?: number | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      app_settings: {
-        Row: {
-          alert_drop_pct: number
-          alert_emails: string[]
-          alert_menu_score: number
-          alert_pending_comments: number
-          cooldown_hours: number
-          id: number
-          min_response_ms: number
-          pdf_color: string
-          pdf_company_name: string
-          pdf_logo_url: string
-          quorum: number
-          service_hours: Json
-          updated_at: string
-        }
-        Insert: {
-          alert_drop_pct?: number
-          alert_emails?: string[]
-          alert_menu_score?: number
-          alert_pending_comments?: number
-          cooldown_hours?: number
-          id?: number
-          min_response_ms?: number
-          pdf_color?: string
-          pdf_company_name?: string
-          pdf_logo_url?: string
-          quorum?: number
-          service_hours?: Json
-          updated_at?: string
-        }
-        Update: {
-          alert_drop_pct?: number
-          alert_emails?: string[]
-          alert_menu_score?: number
-          alert_pending_comments?: number
-          cooldown_hours?: number
-          id?: number
-          min_response_ms?: number
-          pdf_color?: string
-          pdf_company_name?: string
-          pdf_logo_url?: string
-          quorum?: number
-          service_hours?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      daily_menus: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          date: string
-          id: string
-          main_dish: string
-          notes: string | null
-          side_dish: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          date: string
-          id?: string
-          main_dish: string
-          notes?: string | null
-          side_dish?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          date?: string
-          id?: string
-          main_dish?: string
-          notes?: string | null
-          side_dish?: string | null
-        }
-        Relationships: []
-      }
-      pdf_reports: {
-        Row: {
-          generated_at: string
-          generated_by: string | null
-          id: string
-          pdf_url: string
-          period_end: string
-          period_start: string
-        }
-        Insert: {
-          generated_at?: string
-          generated_by?: string | null
-          id?: string
-          pdf_url: string
-          period_end: string
-          period_start: string
-        }
-        Update: {
-          generated_at?: string
-          generated_by?: string | null
-          id?: string
-          pdf_url?: string
-          period_end?: string
-          period_start?: string
-        }
-        Relationships: []
-      }
-      questions: {
-        Row: {
-          id: string
-          is_active: boolean
-          order_num: number
-          question_text: string
-          question_type: Database["public"]["Enums"]["question_kind"]
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          id?: string
-          is_active?: boolean
-          order_num: number
-          question_text: string
-          question_type: Database["public"]["Enums"]["question_kind"]
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          id?: string
-          is_active?: boolean
-          order_num?: number
-          question_text?: string
-          question_type?: Database["public"]["Enums"]["question_kind"]
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
-      surveys: {
-        Row: {
-          comment: string | null
-          comment_status: Database["public"]["Enums"]["comment_moderation_status"]
-          created_at: string
-          daily_menu_id: string | null
-          device_fingerprint: string
-          id: string
-          is_flagged: boolean
-          question_1_score: number
-          question_2_score: number
-          question_3_trend: Database["public"]["Enums"]["trend_answer"]
-          question_4_recommend: Database["public"]["Enums"]["recommend_answer"]
-          response_time_ms: number
-        }
-        Insert: {
-          comment?: string | null
-          comment_status?: Database["public"]["Enums"]["comment_moderation_status"]
-          created_at?: string
-          daily_menu_id?: string | null
-          device_fingerprint: string
-          id?: string
-          is_flagged?: boolean
-          question_1_score: number
-          question_2_score: number
-          question_3_trend: Database["public"]["Enums"]["trend_answer"]
-          question_4_recommend: Database["public"]["Enums"]["recommend_answer"]
-          response_time_ms: number
-        }
-        Update: {
-          comment?: string | null
-          comment_status?: Database["public"]["Enums"]["comment_moderation_status"]
-          created_at?: string
-          daily_menu_id?: string | null
-          device_fingerprint?: string
-          id?: string
-          is_flagged?: boolean
-          question_1_score?: number
-          question_2_score?: number
-          question_3_trend?: Database["public"]["Enums"]["trend_answer"]
-          question_4_recommend?: Database["public"]["Enums"]["recommend_answer"]
-          response_time_ms?: number
         }
         Relationships: [
           {
-            foreignKeyName: "surveys_daily_menu_id_fkey"
-            columns: ["daily_menu_id"]
+            foreignKeyName: "encuestas_comedor_id_fkey"
+            columns: ["comedor_id"]
             isOneToOne: false
-            referencedRelation: "daily_menus"
+            referencedRelation: "comedores"
             referencedColumns: ["id"]
           },
         ]
       }
-      user_roles: {
+      preguntas: {
         Row: {
+          activa: boolean
+          comedor_id: string | null
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          orden: number
+          texto: string
+          tipo: Database["public"]["Enums"]["pregunta_tipo"]
+        }
+        Insert: {
+          activa?: boolean
+          comedor_id?: string | null
+          created_at?: string
+          id?: string
+          orden: number
+          texto: string
+          tipo: Database["public"]["Enums"]["pregunta_tipo"]
+        }
+        Update: {
+          activa?: boolean
+          comedor_id?: string | null
+          created_at?: string
+          id?: string
+          orden?: number
+          texto?: string
+          tipo?: Database["public"]["Enums"]["pregunta_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preguntas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reportes: {
+        Row: {
+          analisis_ia: Json | null
+          comedor_id: string
+          created_at: string
+          fecha_desde: string
+          fecha_hasta: string
+          generado_por: string | null
+          id: string
+          url_pdf: string
+        }
+        Insert: {
+          analisis_ia?: Json | null
+          comedor_id: string
+          created_at?: string
+          fecha_desde: string
+          fecha_hasta: string
+          generado_por?: string | null
+          id?: string
+          url_pdf: string
+        }
+        Update: {
+          analisis_ia?: Json | null
+          comedor_id?: string
+          created_at?: string
+          fecha_desde?: string
+          fecha_hasta?: string
+          generado_por?: string | null
+          id?: string
+          url_pdf?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reportes_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reportes_generado_por_fkey"
+            columns: ["generado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      respuestas: {
+        Row: {
+          created_at: string
+          encuesta_id: string
+          id: string
+          pregunta_id: string
+          valor_booleano: boolean | null
+          valor_numerico: number | null
+          valor_texto: string | null
         }
         Insert: {
           created_at?: string
+          encuesta_id: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          pregunta_id: string
+          valor_booleano?: boolean | null
+          valor_numerico?: number | null
+          valor_texto?: string | null
         }
         Update: {
           created_at?: string
+          encuesta_id?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          pregunta_id?: string
+          valor_booleano?: boolean | null
+          valor_numerico?: number | null
+          valor_texto?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "respuestas_encuesta_id_fkey"
+            columns: ["encuesta_id"]
+            isOneToOne: false
+            referencedRelation: "encuestas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "respuestas_pregunta_id_fkey"
+            columns: ["pregunta_id"]
+            isOneToOne: false
+            referencedRelation: "preguntas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usuarios: {
+        Row: {
+          comedor_id: string | null
+          created_at: string
+          id: string
+          nombre: string
+          rol: Database["public"]["Enums"]["user_rol"]
+        }
+        Insert: {
+          comedor_id?: string | null
+          created_at?: string
+          id: string
+          nombre?: string
+          rol: Database["public"]["Enums"]["user_rol"]
+        }
+        Update: {
+          comedor_id?: string | null
+          created_at?: string
+          id?: string
+          nombre?: string
+          rol?: Database["public"]["Enums"]["user_rol"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      current_user_comedor: { Args: never; Returns: string }
+      current_user_rol: {
+        Args: never
+        Returns: Database["public"]["Enums"]["user_rol"]
       }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "cafeteria_admin" | "hr_viewer"
-      comment_moderation_status: "pending" | "approved" | "archived" | "deleted"
+      pregunta_tipo: "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3"
       question_kind: "scale_5" | "trend_3" | "recommend_3" | "comment"
-      recommend_answer: "no" | "tal_vez" | "si"
-      trend_answer: "peor" | "igual" | "mejor"
+      user_rol: "admin" | "operador"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -429,11 +376,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["cafeteria_admin", "hr_viewer"],
-      comment_moderation_status: ["pending", "approved", "archived", "deleted"],
+      pregunta_tipo: ["escala_5", "si_no", "texto_abierto", "texto_multiple_3"],
       question_kind: ["scale_5", "trend_3", "recommend_3", "comment"],
-      recommend_answer: ["no", "tal_vez", "si"],
-      trend_answer: ["peor", "igual", "mejor"],
+      user_rol: ["admin", "operador"],
     },
   },
 } as const
