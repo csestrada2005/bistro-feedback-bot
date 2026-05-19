@@ -7,6 +7,7 @@ import {
   CalendarIcon,
   Download,
   Eye,
+  FlaskConical,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -67,6 +68,7 @@ type Pregunta = {
   comedor_id: string | null;
 };
 type Encuesta = { id: string; fecha: string; comedor_id: string };
+type EncuestaRow = Encuesta & { es_prueba: boolean };
 type Respuesta = {
   id: string;
   encuesta_id: string;
@@ -80,6 +82,7 @@ type Row = {
   id: string;
   fecha: string;
   comedor_id: string;
+  es_prueba: boolean;
   promedio: number | null;
   incidente: boolean | null;
   incidenteDesc: string | null;
@@ -134,7 +137,7 @@ export default function ResponsesPage() {
     // Encuestas filtradas + count
     let q = supabase
       .from("encuestas")
-      .select("id, fecha, comedor_id", { count: "exact" })
+      .select("id, fecha, comedor_id, es_prueba", { count: "exact" })
       .gte("fecha", desdeISO)
       .lt("fecha", hastaISO);
     if (comedorId !== ALL) q = q.eq("comedor_id", comedorId);
@@ -147,7 +150,7 @@ export default function ResponsesPage() {
       setLoading(false);
       return;
     }
-    const encuestas = (encData ?? []) as Encuesta[];
+    const encuestas = (encData ?? []) as EncuestaRow[];
     setTotalCount(count ?? 0);
 
     const ids = encuestas.map((e) => e.id);
@@ -189,6 +192,7 @@ export default function ResponsesPage() {
         id: e.id,
         fecha: e.fecha,
         comedor_id: e.comedor_id,
+        es_prueba: e.es_prueba,
         promedio: prom,
         incidente,
         incidenteDesc,
@@ -315,6 +319,22 @@ export default function ResponsesPage() {
     }
   };
 
+  const toggleEsPrueba = async (r: Row) => {
+    const next = !r.es_prueba;
+    // Optimistic
+    setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, es_prueba: next } : x)));
+    const { error } = await supabase
+      .from("encuestas")
+      .update({ es_prueba: next })
+      .eq("id", r.id);
+    if (error) {
+      setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, es_prueba: r.es_prueba } : x)));
+      toast.error("No se pudo actualizar");
+    } else {
+      toast.success(next ? "Marcada como prueba" : "Marcada como válida");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Filtros */}
@@ -410,6 +430,11 @@ export default function ResponsesPage() {
                     </TableCell>
                     <TableCell className="text-sm">
                       {format(new Date(r.fecha), "dd/MM/yyyy HH:mm")}
+                      {r.es_prueba && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          Prueba
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm">
                       {comedorById.get(r.comedor_id)?.nombre ?? "—"}
@@ -435,6 +460,16 @@ export default function ResponsesPage() {
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setDetail(r)}>
                           <Eye className="mr-1 h-4 w-4" /> Ver detalle
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={r.es_prueba ? "Marcar como válida" : "Marcar como prueba"}
+                          title={r.es_prueba ? "Marcar como válida" : "Marcar como prueba"}
+                          className={cn(r.es_prueba && "text-amber-600 hover:text-amber-700")}
+                          onClick={() => void toggleEsPrueba(r)}
+                        >
+                          <FlaskConical className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
