@@ -49,6 +49,75 @@ jobs:
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 
+      - name: Check regressions vs baseline
+        if: always()
+        id: regression
+        env:
+          REGRESSION_PCT_OVERRIDE: ${{ vars.LHCI_REGRESSION_PCT }}
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = '.lighthouseci';
+          const baselineFile = '.lighthouse-baseline.json';
+
+          if (!fs.existsSync(path.join(dir, 'manifest.json'))) {
+            console.log('No manifest.json — saltando regression check.');
+            process.exit(0);
+          }
+          if (!fs.existsSync(baselineFile)) {
+            console.log('Sin baseline — saltando.');
+            process.exit(0);
+          }
+
+          const baseline = JSON.parse(fs.readFileSync(baselineFile, 'utf8'));
+          const thresholdPct = Number(process.env.REGRESSION_PCT_OVERRIDE) || baseline.regressionThresholdPct || 10;
+          const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
+          const medians = manifest.filter(m => m.isRepresentativeRun);
+
+          const tracked = ['first-contentful-paint', 'largest-contentful-paint', 'total-blocking-time'];
+          const failures = [];
+          const summary = [];
+
+          for (const run of medians) {
+            const lhr = JSON.parse(fs.readFileSync(run.jsonPath, 'utf8'));
+            const urlPath = new URL(lhr.finalUrl).pathname;
+            const base = baseline.urls?.[urlPath];
+            if (!base) {
+              console.log(`Sin baseline para ${urlPath} — saltando.`);
+              continue;
+            }
+            for (const metric of tracked) {
+              const current = lhr.audits[metric]?.numericValue;
+              const baseVal = base[metric];
+              if (current == null || baseVal == null) continue;
+              const deltaPct = ((current - baseVal) / baseVal) * 100;
+              const row = { url: urlPath, metric, baseline: Math.round(baseVal), current: Math.round(current), deltaPct: deltaPct.toFixed(1) };
+              summary.push(row);
+              if (deltaPct > thresholdPct) {
+                failures.push(row);
+              }
+            }
+          }
+
+          console.log(`Umbral de regresión: +${thresholdPct}%`);
+          console.table(summary);
+
+          // Exportar para el comentario del PR
+          const md = ['| URL | Métrica | Baseline | Actual | Δ% |', '|---|---|---|---|---|']
+            .concat(summary.map(r => `| \`${r.url}\` | ${r.metric} | ${r.baseline}ms | ${r.current}ms | ${r.deltaPct > 0 ? '🔺' : '✅'} ${r.deltaPct}% |`))
+            .join('\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `table<<__EOF__\n${md}\n__EOF__\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `threshold=${thresholdPct}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `failed=${failures.length > 0}\n`);
+
+          if (failures.length > 0) {
+            console.error(`\n❌ Regresión detectada (> ${thresholdPct}%):`);
+            failures.forEach(f => console.error(`  ${f.url} · ${f.metric}: ${f.baseline}ms → ${f.current}ms (+${f.deltaPct}%)`));
+            process.exit(1);
+          }
+          EOF
+
       - name: Upload Lighthouse reports
         if: always()
         id: upload
@@ -108,6 +177,9 @@ jobs:
 | URL | Perf | FCP | LCP | TBT | SI | TTI |
 |---|---|---|---|---|---|---|
 ${metricsRows || '| _(sin métricas)_ | | | | | | |'}
+
+**Regresión vs baseline (umbral +${{ steps.regression.outputs.threshold }}%):**
+${{ steps.regression.outputs.table }}
 
 **Reportes públicos (temporales):**
 ${linksMd}
