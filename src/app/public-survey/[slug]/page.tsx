@@ -1,28 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { KioskLayout } from "@/components/survey/KioskLayout";
-import { comedores } from "@/lib/mockData";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
-const SCALE_QUESTIONS = [
-  "¿Cómo consideras el sabor de la comida?",
-  "¿Cómo consideras la calidad de los alimentos?",
-  "¿Cómo consideras el sabor y calidad del plato fuerte?",
-  "¿Qué tan buena es la variedad del menú?",
-  "¿Cómo consideras la porción de los alimentos?",
-  "¿Cómo calificas el agua de sabor en el comedor?",
-  "¿Cómo consideras el tiempo de servicio del comedor?",
-  "¿Cómo consideras la variedad y calidad del postre?",
-  "¿Cómo consideras la temperatura de los alimentos?",
-  "¿Cómo consideras la limpieza de los utensilios (platos, cucharas, tenedores)?",
-  "¿Cómo consideras la limpieza del área?",
-  "¿El personal cumple con las medidas de higiene visibles (guantes y cubrebocas)?",
-  "¿Cómo consideras el trato del personal del comedor?",
-];
+type Pregunta = {
+  id: string;
+  texto: string;
+  tipo: "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3";
+  orden: number;
+};
+
+type Comedor = { id: string; slug: string; nombre: string };
 
 const SCALE_OPTIONS = [
   { value: 1, label: "Deficiente", emoji: "😣", classes: "bg-red-500 hover:bg-red-600 text-white border-red-600" },
@@ -32,84 +26,161 @@ const SCALE_OPTIONS = [
   { value: 5, label: "Muy bueno", emoji: "😋", classes: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700" },
 ];
 
-const TOTAL_STEPS = 17; // 0 welcome, 1-13 scale, 14 incidente, 15 mejoras, 16 menu, 17 thanks (final 17 not counted in progress)
-const PROGRESS_STEPS = 16;
+type AnswerMap = Record<string, { numerico?: number; booleano?: boolean; texto?: string; textos?: string[] }>;
 
-type Respuestas = {
-  comedorSlug: string;
-  fechaISO: string;
-  respuestasEscala: Record<number, number>;
-  incidente: { tuvo: boolean | null; descripcion: string };
-  propuestasMejora: string[];
-  propuestasMenu: string[];
-};
-
-const initialState = (slug: string): Respuestas => ({
-  comedorSlug: slug,
-  fechaISO: new Date().toISOString(),
-  respuestasEscala: {},
-  incidente: { tuvo: null, descripcion: "" },
-  propuestasMejora: ["", "", ""],
-  propuestasMenu: ["", "", ""],
-});
+const initial = (): AnswerMap => ({});
 
 export default function PublicSurveyPage() {
-  const { slug = "sp" } = useParams<{ slug: string }>();
-  const comedor = comedores.find((c) => c.slug === slug);
-  const [step, setStep] = useState(0);
-  const [data, setData] = useState<Respuestas>(() => initialState(slug));
+  const { slug = "" } = useParams<{ slug: string }>();
+  const [loading, setLoading] = useState(true);
+  const [comedor, setComedor] = useState<Comedor | null>(null);
+  const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
+  const [step, setStep] = useState(0); // 0 welcome, 1..N pregunta index, N+1 thanks
+  const [answers, setAnswers] = useState<AnswerMap>(initial);
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
+  useEffect(() => {
+    void (async () => {
+      const { data: com } = await supabase
+        .from("comedores")
+        .select("id, slug, nombre")
+        .eq("slug", slug)
+        .eq("activo", true)
+        .maybeSingle();
+      if (!com) {
+        setLoading(false);
+        return;
+      }
+      setComedor(com as Comedor);
+      const { data: qs } = await supabase
+        .from("preguntas")
+        .select("id, texto, tipo, orden")
+        .eq("activa", true)
+        .or(`comedor_id.is.null,comedor_id.eq.${com.id}`)
+        .order("orden", { ascending: true });
+      setPreguntas((qs ?? []) as Pregunta[]);
+      setLoading(false);
+    })();
+  }, [slug]);
+
+  const total = preguntas.length;
+
   const reset = () => {
-    setData(initialState(slug));
+    setAnswers(initial());
     setStep(0);
+    setDone(false);
     setCountdown(5);
   };
 
   useEffect(() => {
-    if (step !== 17) return;
+    if (!done) return;
     setCountdown(5);
-    const interval = setInterval(() => {
+    const t = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
-          clearInterval(interval);
+          clearInterval(t);
           reset();
           return 0;
         }
         return c - 1;
       });
     }, 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+    return () => clearInterval(t);
+  }, [done]);
 
-  const submit = (final: Respuestas) => {
-    // eslint-disable-next-line no-console
-    console.log("ENCUESTA ENVIADA", final);
-    setStep(17);
+  if (loading) {
+    return (
+      <KioskLayout>
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+        </div>
+      </KioskLayout>
+    );
+  }
+
+  if (!comedor) {
+    return (
+      <KioskLayout>
+        <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+          <h1 className="text-5xl font-extrabold text-foreground">Comedor no encontrado</h1>
+          <p className="mt-4 text-xl text-muted-foreground">
+            El enlace no corresponde a ningun comedor activo.
+          </p>
+          <Link to="/" className="mt-8 text-base text-brand underline">
+            Volver al inicio
+          </Link>
+        </div>
+      </KioskLayout>
+    );
+  }
+
+  const submit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const { data: encuesta, error: encErr } = await supabase
+        .from("encuestas")
+        .insert({ comedor_id: comedor.id })
+        .select("id")
+        .single();
+      if (encErr || !encuesta) throw encErr ?? new Error("No encuesta");
+
+      const rows: {
+        encuesta_id: string;
+        pregunta_id: string;
+        valor_numerico: number | null;
+        valor_booleano: boolean | null;
+        valor_texto: string | null;
+      }[] = [];
+
+      for (const p of preguntas) {
+        const a = answers[p.id];
+        if (!a) continue;
+        if (p.tipo === "escala_5" && a.numerico) {
+          rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: a.numerico, valor_booleano: null, valor_texto: null });
+        } else if (p.tipo === "si_no" && typeof a.booleano === "boolean") {
+          rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: null, valor_booleano: a.booleano, valor_texto: a.texto?.trim() || null });
+        } else if (p.tipo === "texto_abierto" && a.texto?.trim()) {
+          rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: a.texto.trim() });
+        } else if (p.tipo === "texto_multiple_3" && a.textos) {
+          const joined = a.textos.map((t) => t.trim()).filter(Boolean).join(" | ");
+          if (joined) {
+            rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: joined });
+          }
+        }
+      }
+
+      if (rows.length) {
+        const { error: respErr } = await supabase.from("respuestas").insert(rows);
+        if (respErr) throw respErr;
+      }
+      setDone(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("No pudimos guardar la encuesta. Intentalo de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const isWelcome = step === 0;
+  const isQuestion = step >= 1 && step <= total;
+  const currentQ = isQuestion ? preguntas[step - 1] : null;
 
   const handleBack = () => {
-    if (step > 0 && step < 17) setStep((s) => s - 1);
+    if (step > 0 && !done) setStep((s) => s - 1);
   };
-
-  const showBack = step > 0 && step < 17;
-  const showProgress = step >= 1 && step <= 16;
-  const currentLabel = step >= 1 && step <= 16 ? `Pregunta ${step} de ${PROGRESS_STEPS}` : "";
-
-  // SCALE QUESTIONS (1..13)
-  const isScale = step >= 1 && step <= 13;
-  const scaleIndex = step - 1;
 
   return (
     <KioskLayout>
-      {/* Top bar */}
       <div className="flex items-center justify-between px-8 pt-6">
         <div className="w-12">
-          {showBack && (
+          {step > 0 && !done && (
             <button
               onClick={handleBack}
-              aria-label="Atrás"
+              aria-label="Atras"
               className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"
             >
               <ArrowLeft className="h-6 w-6" />
@@ -117,13 +188,15 @@ export default function PublicSurveyPage() {
           )}
         </div>
         <div className="flex-1 px-6 text-center">
-          {showProgress && (
+          {isQuestion && (
             <>
-              <p className="text-base font-semibold text-muted-foreground">{currentLabel}</p>
+              <p className="text-base font-semibold text-muted-foreground">
+                Pregunta {step} de {total}
+              </p>
               <div className="mx-auto mt-2 h-2 w-full max-w-xl overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full bg-brand transition-all duration-300"
-                  style={{ width: `${(step / PROGRESS_STEPS) * 100}%` }}
+                  style={{ width: `${(step / total) * 100}%` }}
                 />
               </div>
             </>
@@ -132,22 +205,15 @@ export default function PublicSurveyPage() {
         <div className="w-12" />
       </div>
 
-      {/* Body */}
-      <section
-        key={step}
-        className="flex flex-1 animate-in fade-in duration-200 flex-col items-center justify-center px-8 pb-10"
-      >
-        {/* Step 0: welcome */}
-        {step === 0 && (
+      <section key={step} className="flex flex-1 animate-in fade-in duration-200 flex-col items-center justify-center px-8 pb-10">
+        {isWelcome && !done && (
           <div className="flex flex-col items-center text-center">
             <span className="mb-6 inline-flex items-center rounded-full bg-brand-soft px-5 py-2 text-lg font-semibold text-brand">
               Main Catering
             </span>
-            <h1 className="text-6xl font-extrabold leading-tight text-foreground">
-              Comedor {comedor?.nombre.split(" ")[0] ?? slug.toUpperCase()}
-            </h1>
+            <h1 className="text-6xl font-extrabold leading-tight text-foreground">{comedor.nombre}</h1>
             <p className="mt-6 max-w-xl text-2xl text-muted-foreground">
-              Tu opinión nos ayuda a mejorar. Solo te tomará 2 minutos.
+              Tu opinion nos ayuda a mejorar. Solo te tomara 2 minutos.
             </p>
             <Button
               onClick={() => setStep(1)}
@@ -158,203 +224,177 @@ export default function PublicSurveyPage() {
           </div>
         )}
 
-        {/* Steps 1-13: scale */}
-        {isScale && (
+        {isQuestion && currentQ && (
           <div className="w-full max-w-5xl">
             <h2 className="text-center text-5xl font-extrabold leading-tight text-foreground">
-              {SCALE_QUESTIONS[scaleIndex]}
+              {currentQ.texto}
             </h2>
-            <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-5">
-              {SCALE_OPTIONS.map((opt) => {
-                const selected = data.respuestasEscala[step] === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => {
-                      setData((d) => ({
-                        ...d,
-                        respuestasEscala: { ...d.respuestasEscala, [step]: opt.value },
-                      }));
-                      setTimeout(() => setStep((s) => s + 1), 120);
-                    }}
-                    className={cn(
-                      "flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-3xl border-2 p-4 text-center transition-transform active:scale-95",
-                      opt.classes,
-                      selected && "ring-4 ring-offset-2 ring-foreground/30"
-                    )}
-                  >
-                    <span className="text-5xl">{opt.emoji}</span>
-                    <span className="text-4xl font-extrabold">{opt.value}</span>
-                    <span className="text-lg font-bold">{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
-        {/* Step 14: incidente */}
-        {step === 14 && (
-          <div className="w-full max-w-3xl">
-            <h2 className="text-center text-5xl font-extrabold text-foreground">
-              ¿Has tenido algún incidente con alimentos?
-            </h2>
-            <div className="mt-14 grid grid-cols-2 gap-6">
-              <button
-                onClick={() => setData((d) => ({ ...d, incidente: { ...d.incidente, tuvo: true } }))}
-                className={cn(
-                  "flex min-h-[160px] items-center justify-center rounded-3xl border-2 text-4xl font-extrabold transition-transform active:scale-95",
-                  data.incidente.tuvo === true
-                    ? "border-brand bg-brand text-brand-foreground"
-                    : "border-border bg-card text-foreground hover:border-brand/40"
+            {currentQ.tipo === "escala_5" && (
+              <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-5">
+                {SCALE_OPTIONS.map((opt) => {
+                  const selected = answers[currentQ.id]?.numerico === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setAnswers((a) => ({ ...a, [currentQ.id]: { numerico: opt.value } }));
+                        setTimeout(() => setStep((s) => s + 1), 120);
+                      }}
+                      className={cn(
+                        "flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-3xl border-2 p-4 text-center transition-transform active:scale-95",
+                        opt.classes,
+                        selected && "ring-4 ring-offset-2 ring-foreground/30"
+                      )}
+                    >
+                      <span className="text-5xl">{opt.emoji}</span>
+                      <span className="text-4xl font-extrabold">{opt.value}</span>
+                      <span className="text-lg font-bold">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {currentQ.tipo === "si_no" && (
+              <>
+                <div className="mt-14 grid grid-cols-2 gap-6">
+                  {[true, false].map((val) => {
+                    const selected = answers[currentQ.id]?.booleano === val;
+                    return (
+                      <button
+                        key={String(val)}
+                        onClick={() => {
+                          setAnswers((a) => ({
+                            ...a,
+                            [currentQ.id]: { booleano: val, texto: val ? a[currentQ.id]?.texto ?? "" : "" },
+                          }));
+                          if (!val) setTimeout(() => setStep((s) => s + 1), 120);
+                        }}
+                        className={cn(
+                          "flex min-h-[160px] items-center justify-center rounded-3xl border-2 text-4xl font-extrabold transition-transform active:scale-95",
+                          selected
+                            ? "border-brand bg-brand text-brand-foreground"
+                            : "border-border bg-card text-foreground hover:border-brand/40"
+                        )}
+                      >
+                        {val ? "Si" : "No"}
+                      </button>
+                    );
+                  })}
+                </div>
+                {answers[currentQ.id]?.booleano === true && (
+                  <div className="mt-10 animate-in fade-in duration-200">
+                    <label className="block text-2xl font-semibold text-foreground">
+                      Cuentanos que paso
+                    </label>
+                    <Textarea
+                      value={answers[currentQ.id]?.texto ?? ""}
+                      onChange={(e) =>
+                        setAnswers((a) => ({
+                          ...a,
+                          [currentQ.id]: { ...a[currentQ.id], booleano: true, texto: e.target.value.slice(0, 500) },
+                        }))
+                      }
+                      className="mt-3 min-h-[160px] rounded-2xl border-2 p-5 text-2xl"
+                      placeholder="Describe el incidente..."
+                    />
+                    <Button
+                      onClick={() => setStep((s) => s + 1)}
+                      className="mt-6 h-20 w-full rounded-2xl bg-brand text-2xl font-bold text-brand-foreground hover:bg-brand active:scale-95"
+                    >
+                      Continuar
+                    </Button>
+                  </div>
                 )}
-              >
-                Sí
-              </button>
-              <button
-                onClick={() => {
-                  setData((d) => ({ ...d, incidente: { tuvo: false, descripcion: "" } }));
-                  setTimeout(() => setStep(15), 120);
-                }}
-                className={cn(
-                  "flex min-h-[160px] items-center justify-center rounded-3xl border-2 text-4xl font-extrabold transition-transform active:scale-95",
-                  data.incidente.tuvo === false
-                    ? "border-brand bg-brand text-brand-foreground"
-                    : "border-border bg-card text-foreground hover:border-brand/40"
-                )}
-              >
-                No
-              </button>
-            </div>
-            {data.incidente.tuvo === true && (
-              <div className="mt-10 animate-in fade-in duration-200">
-                <label className="block text-2xl font-semibold text-foreground">
-                  Cuéntanos qué pasó
-                </label>
+              </>
+            )}
+
+            {currentQ.tipo === "texto_multiple_3" && (
+              <>
+                <p className="mt-3 text-center text-xl text-muted-foreground">Opcional</p>
+                <div className="mt-10 space-y-4">
+                  {[0, 1, 2].map((i) => {
+                    const arr = answers[currentQ.id]?.textos ?? ["", "", ""];
+                    return (
+                      <div key={i} className="flex items-center gap-4">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-soft text-2xl font-extrabold text-brand">
+                          {i + 1}
+                        </span>
+                        <Input
+                          value={arr[i]}
+                          onChange={(e) => {
+                            const next = [...arr];
+                            next[i] = e.target.value.slice(0, 140);
+                            setAnswers((a) => ({ ...a, [currentQ.id]: { textos: next } }));
+                          }}
+                          placeholder={`Opcion ${i + 1}`}
+                          className="h-16 rounded-2xl border-2 px-5 text-xl"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <Button
+                  onClick={() => (step === total ? void submit() : setStep((s) => s + 1))}
+                  disabled={submitting}
+                  className="mt-10 h-20 w-full rounded-2xl bg-brand text-2xl font-bold text-brand-foreground hover:bg-brand active:scale-95"
+                >
+                  {submitting && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                  {step === total ? "Enviar encuesta" : "Continuar"}
+                </Button>
+              </>
+            )}
+
+            {currentQ.tipo === "texto_abierto" && (
+              <>
                 <Textarea
-                  value={data.incidente.descripcion}
+                  value={answers[currentQ.id]?.texto ?? ""}
                   onChange={(e) =>
-                    setData((d) => ({
-                      ...d,
-                      incidente: { ...d.incidente, descripcion: e.target.value.slice(0, 500) },
+                    setAnswers((a) => ({
+                      ...a,
+                      [currentQ.id]: { texto: e.target.value.slice(0, 500) },
                     }))
                   }
-                  className="mt-3 min-h-[160px] rounded-2xl border-2 p-5 text-2xl"
-                  placeholder="Describe el incidente..."
+                  className="mt-10 min-h-[180px] rounded-2xl border-2 p-5 text-2xl"
+                  placeholder="Escribe tu respuesta..."
                 />
                 <Button
-                  onClick={() => setStep(15)}
-                  className="mt-6 h-20 w-full rounded-2xl bg-brand text-2xl font-bold text-brand-foreground hover:bg-brand active:scale-95"
+                  onClick={() => (step === total ? void submit() : setStep((s) => s + 1))}
+                  disabled={submitting}
+                  className="mt-10 h-20 w-full rounded-2xl bg-brand text-2xl font-bold text-brand-foreground hover:bg-brand active:scale-95"
                 >
-                  Continuar
+                  {step === total ? "Enviar encuesta" : "Continuar"}
                 </Button>
-              </div>
+              </>
             )}
           </div>
         )}
 
-        {/* Step 15: propuestas mejora */}
-        {step === 15 && (
-          <div className="w-full max-w-3xl">
-            <h2 className="text-center text-4xl font-extrabold text-foreground">
-              ¿Qué propones para mejorar el servicio del comedor?
-            </h2>
-            <p className="mt-3 text-center text-xl text-muted-foreground">Opcional</p>
-            <div className="mt-10 space-y-4">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-soft text-2xl font-extrabold text-brand">
-                    {i + 1}
-                  </span>
-                  <Input
-                    value={data.propuestasMejora[i]}
-                    onChange={(e) => {
-                      const next = [...data.propuestasMejora];
-                      next[i] = e.target.value.slice(0, 140);
-                      setData((d) => ({ ...d, propuestasMejora: next }));
-                    }}
-                    placeholder={`Propuesta ${i + 1}`}
-                    className="h-16 rounded-2xl border-2 px-5 text-xl"
-                  />
-                </div>
-              ))}
-            </div>
-            <Button
-              onClick={() => setStep(16)}
-              className="mt-10 h-20 w-full rounded-2xl bg-brand text-2xl font-bold text-brand-foreground hover:bg-brand active:scale-95"
-            >
-              Continuar
-            </Button>
-          </div>
-        )}
-
-        {/* Step 16: propuestas menu */}
-        {step === 16 && (
-          <div className="w-full max-w-3xl">
-            <h2 className="text-center text-4xl font-extrabold text-foreground">
-              ¿Qué 3 platos fuertes te gustaría que incluyéramos?
-            </h2>
-            <p className="mt-3 text-center text-xl text-muted-foreground">Opcional</p>
-            <div className="mt-10 space-y-4">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-soft text-2xl font-extrabold text-brand">
-                    {i + 1}
-                  </span>
-                  <Input
-                    value={data.propuestasMenu[i]}
-                    onChange={(e) => {
-                      const next = [...data.propuestasMenu];
-                      next[i] = e.target.value.slice(0, 80);
-                      setData((d) => ({ ...d, propuestasMenu: next }));
-                    }}
-                    placeholder={`Platillo ${i + 1}`}
-                    className="h-16 rounded-2xl border-2 px-5 text-xl"
-                  />
-                </div>
-              ))}
-            </div>
-            <Button
-              onClick={() => submit({ ...data, fechaISO: new Date().toISOString() })}
-              className="mt-10 h-20 w-full rounded-2xl bg-brand text-2xl font-bold text-brand-foreground hover:bg-brand active:scale-95"
-            >
-              Enviar encuesta
-            </Button>
-          </div>
-        )}
-
-        {/* Step 17: thanks */}
-        {step === 17 && (
+        {done && (
           <div className="flex flex-col items-center text-center">
             <div className="flex h-44 w-44 items-center justify-center rounded-full bg-emerald-100 animate-in zoom-in-50 duration-500">
               <Check className="h-28 w-28 text-emerald-600" strokeWidth={3} />
             </div>
-            <h1 className="mt-10 text-6xl font-extrabold text-foreground">
-              ¡Gracias por tu opinión!
-            </h1>
+            <h1 className="mt-10 text-6xl font-extrabold text-foreground">Gracias por tu opinion!</h1>
             <p className="mt-4 max-w-xl text-2xl text-muted-foreground">
-              Tu respuesta ayuda al equipo de Main Catering a mejorar todos los días.
+              Tu respuesta ayuda al equipo de Main Catering a mejorar todos los dias.
             </p>
-            <p className="mt-10 text-lg text-muted-foreground">
-              Reiniciando en {countdown}s…
-            </p>
+            <p className="mt-10 text-lg text-muted-foreground">Reiniciando en {countdown}s...</p>
           </div>
         )}
       </section>
 
-      {/* Footer breadcrumb to leave (only on welcome) */}
-      {step === 0 && (
+      {isWelcome && !done && (
         <div className="px-8 pb-6 text-center">
           <Link to="/" className="text-sm text-muted-foreground/70 hover:text-foreground">
             Salir del kiosko
           </Link>
         </div>
       )}
-
-      {/* Comedor name footer */}
-      {step > 0 && step < 17 && (
+      {isQuestion && (
         <footer className="border-t border-border py-3 text-center text-sm text-muted-foreground">
-          {comedor?.nombre ?? slug}
+          {comedor.nombre}
         </footer>
       )}
     </KioskLayout>
