@@ -16,10 +16,10 @@ export function AdminLayout() {
     <div className="flex min-h-screen w-full bg-background">
       <AdminSidebar />
       <div className="flex flex-1 flex-col">
-        <header className="flex h-14 items-center border-b border-border bg-card px-6">
+        <header className="flex h-14 items-center border-b border-border bg-card px-6 pl-16 md:pl-6">
           <h1 className="text-lg font-semibold text-foreground">{title}</h1>
         </header>
-        <main className="flex-1 overflow-auto px-8 py-6">
+        <main className="flex-1 overflow-auto px-4 py-6 sm:px-6 md:px-8">
           <Outlet />
         </main>
       </div>
