@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -6,16 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { KioskLayout } from "@/components/survey/KioskLayout";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { trackSurveyRum } from "@/lib/rum";
+
+const DemoSwitcherDialog = lazy(() => import("@/components/survey/DemoSwitcherDialog"));
 
 type Pregunta = {
   id: string;
@@ -75,8 +69,21 @@ export default function PublicSurveyPage() {
         .order("orden", { ascending: true });
       setPreguntas((qs ?? []) as Pregunta[]);
       setLoading(false);
-      // RUM: una sola vez por carga, después de identificar el comedor
-      trackSurveyRum({ slug, comedorId: (com as Comedor).id });
+      // RUM: cargar el módulo en idle para no competir con el primer render.
+      const comId = (com as Comedor).id;
+      const sendRum = () =>
+        import("@/lib/rum").then(({ trackSurveyRum }) =>
+          trackSurveyRum({ slug, comedorId: comId })
+        );
+      type WinIdle = Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      };
+      const w = window as WinIdle;
+      if (typeof w.requestIdleCallback === "function") {
+        w.requestIdleCallback(sendRum, { timeout: 2000 });
+      } else {
+        setTimeout(sendRum, 1200);
+      }
     })();
   }, [slug]);
 
@@ -461,35 +468,20 @@ export default function PublicSurveyPage() {
         </footer>
       )}
 
-      <Dialog open={demoOpen} onOpenChange={setDemoOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Modo demo</DialogTitle>
-            <DialogDescription>
-              Cambia de comedor para presentaciones. Esto reiniciará la encuesta actual.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] space-y-1 overflow-y-auto">
-            {allComedores.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
-            ) : (
-              allComedores.map((c) => (
-                <Button
-                  key={c.id}
-                  variant={c.id === comedor.id ? "default" : "outline"}
-                  className="w-full justify-start"
-                  onClick={() => {
-                    setDemoOpen(false);
-                    if (c.slug !== comedor.slug) navigate(`/survey/${c.slug}`);
-                  }}
-                >
-                  {c.nombre}
-                </Button>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {demoOpen && (
+        <Suspense fallback={null}>
+          <DemoSwitcherDialog
+            open={demoOpen}
+            onOpenChange={setDemoOpen}
+            currentId={comedor.id}
+            comedores={allComedores}
+            onSelect={(c) => {
+              setDemoOpen(false);
+              if (c.slug !== comedor.slug) navigate(`/survey/${c.slug}`);
+            }}
+          />
+        </Suspense>
+      )}
     </KioskLayout>
   );
 }
