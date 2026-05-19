@@ -54,6 +54,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Tooltip as UiTooltip,
   TooltipContent,
@@ -231,6 +233,7 @@ export default function DashboardPage() {
   const [pendingComedor, setPendingComedor] = useState<string>("");
   const [pendingDesde, setPendingDesde] = useState<Date>(subDays(new Date(), 30));
   const [pendingHasta, setPendingHasta] = useState<Date>(new Date());
+  const [incluirPruebas, setIncluirPruebas] = useState<boolean>(false);
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats>(emptyStats);
@@ -272,18 +275,34 @@ export default function DashboardPage() {
 
       const [pQ, cE, pE] = await Promise.all([
         supabase.from("preguntas").select("*").order("orden"),
-        supabase
-          .from("encuestas")
-          .select("id, fecha, comedor_id")
-          .eq("comedor_id", cId)
-          .gte("fecha", desdeISO)
-          .lt("fecha", hastaISO),
-        supabase
-          .from("encuestas")
-          .select("id, fecha, comedor_id")
-          .eq("comedor_id", cId)
-          .gte("fecha", prevDesdeISO)
-          .lt("fecha", prevHastaISO),
+        (incluirPruebas
+          ? supabase
+              .from("encuestas")
+              .select("id, fecha, comedor_id")
+              .eq("comedor_id", cId)
+              .gte("fecha", desdeISO)
+              .lt("fecha", hastaISO)
+          : supabase
+              .from("encuestas")
+              .select("id, fecha, comedor_id")
+              .eq("comedor_id", cId)
+              .eq("es_prueba", false)
+              .gte("fecha", desdeISO)
+              .lt("fecha", hastaISO)),
+        (incluirPruebas
+          ? supabase
+              .from("encuestas")
+              .select("id, fecha, comedor_id")
+              .eq("comedor_id", cId)
+              .gte("fecha", prevDesdeISO)
+              .lt("fecha", prevHastaISO)
+          : supabase
+              .from("encuestas")
+              .select("id, fecha, comedor_id")
+              .eq("comedor_id", cId)
+              .eq("es_prueba", false)
+              .gte("fecha", prevDesdeISO)
+              .lt("fecha", prevHastaISO)),
       ]);
 
       if (pQ.error || cE.error || pE.error) {
@@ -311,7 +330,7 @@ export default function DashboardPage() {
       setPrevStats(computeStats(preguntas, encPrev, (rP.data ?? []) as Respuesta[]));
       setLoading(false);
     },
-    []
+    [incluirPruebas]
   );
 
   useEffect(() => {
@@ -322,7 +341,7 @@ export default function DashboardPage() {
   useEffect(() => {
     setAiAnalisis(null);
     setReporteId(null);
-  }, [comedorId, desde, hasta]);
+  }, [comedorId, desde, hasta, incluirPruebas]);
 
   const runAnalysis = useCallback(async () => {
     if (!comedorId) return;
@@ -416,6 +435,16 @@ export default function DashboardPage() {
               <DateField label="Desde" value={pendingDesde} onChange={setPendingDesde} />
               <DateField label="Hasta" value={pendingHasta} onChange={setPendingHasta} />
               <Button onClick={aplicar}>Aplicar filtros</Button>
+              <div className="flex items-center gap-2 pb-2 pl-2">
+                <Switch
+                  id="incluir-pruebas"
+                  checked={incluirPruebas}
+                  onCheckedChange={setIncluirPruebas}
+                />
+                <Label htmlFor="incluir-pruebas" className="text-sm">
+                  Incluir encuestas de prueba
+                </Label>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={runAnalysis} disabled={aiLoading || !comedorId}>

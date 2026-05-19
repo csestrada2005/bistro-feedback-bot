@@ -45,18 +45,21 @@ export type Database = {
         Row: {
           comedor_id: string
           created_at: string
+          es_prueba: boolean
           fecha: string
           id: string
         }
         Insert: {
           comedor_id: string
           created_at?: string
+          es_prueba?: boolean
           fecha?: string
           id?: string
         }
         Update: {
           comedor_id?: string
           created_at?: string
+          es_prueba?: boolean
           fecha?: string
           id?: string
         }
