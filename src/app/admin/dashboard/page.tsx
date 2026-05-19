@@ -754,7 +754,13 @@ function PropuestasCol({
   );
 }
 
-function EmptyState() {
+function EmptyState({ slug }: { slug: string }) {
+  const url = slug ? `${window.location.origin}/survey/${slug}` : "";
+  const copy = () => {
+    if (!url) return;
+    void navigator.clipboard.writeText(url);
+    toast.success("URL copiada al portapapeles");
+  };
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card p-16 text-center">
       <Inbox className="h-12 w-12 text-muted-foreground" />
@@ -762,6 +768,14 @@ function EmptyState() {
       <p className="max-w-sm text-sm text-muted-foreground">
         Cuando los comensales completen la encuesta, aquí verás los KPIs.
       </p>
+      {url && (
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <code className="rounded-md bg-muted px-3 py-1.5 text-xs text-foreground">{url}</code>
+          <Button size="sm" variant="outline" onClick={copy}>
+            Compartir URL de encuesta
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
