@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Pencil, Plus, Sparkles, Trash2, FileQuestion } from "lucide-react";
+import { GripVertical, Pencil, Plus, Sparkles, Trash2, FileQuestion, Loader2, Check, X } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,12 @@ export default function QuestionsPage() {
 
   const [confirmDelete, setConfirmDelete] = useState<Pregunta | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiContexto, setAiContexto] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSugerencias, setAiSugerencias] = useState<
+    { texto: string; tipo: "escala_5" | "si_no" | "texto_abierto"; justificacion: string }[]
+  >([]);
+  const [aiComedor, setAiComedor] = useState<string>("");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -138,6 +144,14 @@ export default function QuestionsPage() {
       (p) => p.comedor_id === null || p.comedor_id === filterComedor
     );
   }, [preguntas, filterComedor]);
+
+  // Default comedor para sugerencias = filtro actual o primero
+  useEffect(() => {
+    if (!aiComedor) {
+      if (filterComedor !== ALL) setAiComedor(filterComedor);
+      else if (comedores[0]) setAiComedor(comedores[0].id);
+    }
+  }, [filterComedor, comedores, aiComedor]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -262,6 +276,70 @@ export default function QuestionsPage() {
     setConfirmDelete(null);
   };
 
+  const openAi = () => {
+    setAiSugerencias([]);
+    setAiContexto("");
+    setAiOpen(true);
+  };
+
+  const generarSugerencias = async () => {
+    const comedor = comedores.find((c) => c.id === aiComedor);
+    if (!comedor) {
+      toast.error("Selecciona un comedor primero");
+      return;
+    }
+    setAiLoading(true);
+    setAiSugerencias([]);
+    try {
+      const preguntasContexto = preguntas
+        .filter((p) => p.comedor_id === null || p.comedor_id === aiComedor)
+        .map((p) => p.texto);
+      const { data, error } = await supabase.functions.invoke("suggest-questions", {
+        body: {
+          comedorNombre: comedor.nombre,
+          contextoAdicional: aiContexto.trim(),
+          preguntasExistentes: preguntasContexto,
+        },
+      });
+      if (error || !data?.sugerencias) {
+        console.error("Sugerencias error", error, data);
+        toast.error("No pudimos generar sugerencias. Intenta de nuevo.");
+        return;
+      }
+      setAiSugerencias(data.sugerencias);
+    } catch (e) {
+      console.error(e);
+      toast.error("No pudimos generar sugerencias. Intenta de nuevo.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const aceptarSugerencia = async (
+    s: { texto: string; tipo: "escala_5" | "si_no" | "texto_abierto"; justificacion: string },
+    idx: number
+  ) => {
+    const maxOrden = preguntas.reduce((m, p) => Math.max(m, p.orden), 0);
+    const { error } = await supabase.from("preguntas").insert({
+      texto: s.texto,
+      tipo: s.tipo,
+      comedor_id: aiComedor || null,
+      activa: true,
+      orden: maxOrden + 1,
+    });
+    if (error) {
+      toast.error("No se pudo agregar");
+      return;
+    }
+    toast.success("Pregunta agregada");
+    setAiSugerencias((prev) => prev.filter((_, i) => i !== idx));
+    void loadData();
+  };
+
+  const descartarSugerencia = (idx: number) => {
+    setAiSugerencias((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -282,7 +360,7 @@ export default function QuestionsPage() {
           </Select>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAiOpen(true)}>
+          <Button variant="outline" onClick={openAi}>
             <Sparkles className="mr-2 h-4 w-4" /> Sugerir preguntas con IA
           </Button>
           <Button onClick={openCreate}>
@@ -446,17 +524,95 @@ export default function QuestionsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal IA (placeholder) */}
+      {/* Modal IA */}
       <Dialog open={aiOpen} onOpenChange={setAiOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" /> Sugerir preguntas con IA
+              <Sparkles className="h-5 w-5" /> Sugerencias inteligentes
             </DialogTitle>
-            <DialogDescription>Próximamente.</DialogDescription>
+            <DialogDescription>
+              La IA propondrá preguntas nuevas para este comedor, evitando las que ya existen.
+            </DialogDescription>
           </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Comedor</Label>
+              <Select value={aiComedor} onValueChange={setAiComedor}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un comedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {comedores.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ai-ctx">Contexto adicional (opcional)</Label>
+              <Textarea
+                id="ai-ctx"
+                value={aiContexto}
+                onChange={(e) => setAiContexto(e.target.value)}
+                placeholder="Ej: vamos a lanzar nuevo menú vegetariano"
+                rows={3}
+              />
+            </div>
+            <Button onClick={generarSugerencias} disabled={aiLoading} className="w-full">
+              {aiLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generando...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" /> Generar sugerencias
+                </>
+              )}
+            </Button>
+
+            {aiSugerencias.length > 0 && (
+              <div className="space-y-3 pt-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {aiSugerencias.length} sugerencia{aiSugerencias.length !== 1 ? "s" : ""}
+                </p>
+                {aiSugerencias.map((s, i) => (
+                  <div
+                    key={i}
+                    className="space-y-2 rounded-lg border border-border bg-muted/30 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="flex-1 text-sm font-medium">{s.texto}</p>
+                      <Badge variant="secondary" className="shrink-0">
+                        {TIPO_LABEL[s.tipo]}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{s.justificacion}</p>
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" onClick={() => aceptarSugerencia(s, i)}>
+                        <Check className="mr-1 h-3 w-3" /> Agregar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => descartarSugerencia(i)}
+                      >
+                        <X className="mr-1 h-3 w-3" /> Descartar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <DialogFooter>
-            <Button onClick={() => setAiOpen(false)}>Cerrar</Button>
+            <Button variant="outline" onClick={() => setAiOpen(false)}>
+              Cerrar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

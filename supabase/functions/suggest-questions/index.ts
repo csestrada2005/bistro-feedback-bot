@@ -1,0 +1,166 @@
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+type Sugerencia = {
+  texto: string;
+  tipo: "escala_5" | "si_no" | "texto_abierto";
+  justificacion: string;
+};
+
+// In-memory rate limit (best-effort por instancia)
+const RATE_LIMIT = 5;
+const WINDOW_MS = 60_000;
+const calls = new Map<string, number[]>();
+
+function rateLimited(key: string) {
+  const now = Date.now();
+  const list = (calls.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (list.length >= RATE_LIMIT) {
+    calls.set(key, list);
+    return true;
+  }
+  list.push(now);
+  calls.set(key, list);
+  return false;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY no configurada" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return new Response(JSON.stringify({ error: "Body inválido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const comedorNombre = String(body.comedorNombre ?? "").trim();
+    const contextoAdicional = String(body.contextoAdicional ?? "").trim();
+    const preguntasExistentes: string[] = Array.isArray(body.preguntasExistentes)
+      ? body.preguntasExistentes.map((x: unknown) => String(x)).slice(0, 50)
+      : [];
+    if (!comedorNombre) {
+      return new Response(JSON.stringify({ error: "comedorNombre requerido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Rate limit por IP + Authorization
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const auth = req.headers.get("authorization") ?? "";
+    const key = `${ip}|${auth.slice(-32)}`;
+    if (rateLimited(key)) {
+      return new Response(
+        JSON.stringify({ error: "Demasiadas solicitudes. Intenta en un minuto." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const systemPrompt = `Eres un experto consultor en operación de comedores industriales en México con 15+ años de experiencia evaluando satisfacción de comensales. Tu trabajo es proponer preguntas de encuesta breves, claras, accionables y en español neutro mexicano.
+
+Reglas:
+- Devuelve entre 3 y 6 preguntas NUEVAS, que NO repitan ni reformulen las existentes.
+- Cada pregunta debe ser corta (máx 120 caracteres) y entendible por cualquier trabajador.
+- "tipo" debe ser uno de: "escala_5" (rating 1-5), "si_no" (sí/no), "texto_abierto" (respuesta libre).
+- Prefiere "escala_5" para evaluar atributos (sabor, temperatura, limpieza, etc.).
+- Devuelve SOLO JSON válido. Sin markdown, sin texto extra.
+- Estructura exacta: {"sugerencias":[{"texto":"...","tipo":"escala_5","justificacion":"..."}]}`;
+
+    const userPrompt = `Comedor: ${comedorNombre}
+${contextoAdicional ? `Contexto adicional del administrador: ${contextoAdicional}\n` : ""}
+Preguntas existentes (NO repetir):
+${preguntasExistentes.length ? preguntasExistentes.map((p, i) => `${i + 1}. ${p}`).join("\n") : "(ninguna)"}
+
+Sugiere entre 3 y 6 preguntas nuevas en JSON estricto.`;
+
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error("Anthropic error", resp.status, errText);
+      return new Response(JSON.stringify({ error: "Error en proveedor de IA" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const data = await resp.json();
+    const raw = data?.content?.[0]?.text ?? "";
+    // Extraer JSON aunque venga rodeado de texto
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) {
+      console.error("Respuesta sin JSON parseable", raw);
+      return new Response(JSON.stringify({ error: "Respuesta IA inválida" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    let parsed: { sugerencias?: Sugerencia[] };
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch (e) {
+      console.error("JSON.parse falló", e, raw);
+      return new Response(JSON.stringify({ error: "Respuesta IA inválida" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const tiposValidos = new Set(["escala_5", "si_no", "texto_abierto"]);
+    const sugerencias: Sugerencia[] = (parsed.sugerencias ?? [])
+      .filter(
+        (s) =>
+          s &&
+          typeof s.texto === "string" &&
+          s.texto.trim().length > 0 &&
+          tiposValidos.has(s.tipo) &&
+          typeof s.justificacion === "string"
+      )
+      .slice(0, 6)
+      .map((s) => ({
+        texto: s.texto.trim(),
+        tipo: s.tipo,
+        justificacion: s.justificacion.trim(),
+      }));
+
+    if (sugerencias.length < 3) {
+      return new Response(JSON.stringify({ error: "La IA no devolvió suficientes sugerencias" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ sugerencias }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("suggest-questions error", e);
+    return new Response(JSON.stringify({ error: "Error interno" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
