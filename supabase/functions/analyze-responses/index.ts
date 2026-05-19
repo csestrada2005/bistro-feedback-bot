@@ -52,7 +52,9 @@ async function callLovableAI(apiKey: string, userPrompt: string) {
   });
   if (!resp.ok) {
     const t = await resp.text();
-    throw new Error(`Lovable AI ${resp.status}: ${t}`);
+    const err = new Error(`Lovable AI ${resp.status}: ${t}`) as Error & { status?: number };
+    err.status = resp.status;
+    throw err;
   }
   const data = await resp.json();
   const raw = data?.choices?.[0]?.message?.content ?? "";
@@ -228,6 +230,17 @@ Deno.serve(async (req) => {
       analisis = await callLovableAI(apiKey, userPrompt);
     } catch (e) {
       console.error("Primer intento IA falló", e);
+      const status = (e as { status?: number })?.status;
+      if (status === 429 || status === 402) {
+        const msg =
+          status === 429
+            ? "Demasiadas solicitudes a la IA. Intenta en un minuto."
+            : "Se agotaron los créditos de IA. Recarga en Ajustes de Lovable Cloud.";
+        return new Response(JSON.stringify({ error: msg }), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       try {
         analisis = await callLovableAI(apiKey, userPrompt);
       } catch (e2) {
