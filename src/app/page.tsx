@@ -8,7 +8,7 @@ export default function LandingPage() {
         Main Catering
       </span>
       <h1 className="max-w-2xl text-5xl font-extrabold text-foreground">
-        Plataforma de satisfaccion de comedores
+        Plataforma de satisfacción de comedores
       </h1>
       <p className="mt-4 max-w-xl text-lg text-muted-foreground">
         Encuesta digital para los 15 comedores corporativos de Main Catering.
