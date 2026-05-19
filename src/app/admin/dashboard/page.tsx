@@ -23,6 +23,9 @@ import {
   FileDown,
   Inbox,
   Lightbulb,
+  Loader2,
+  Quote,
+  RefreshCw,
   UtensilsCrossed,
 } from "lucide-react";
 
@@ -59,6 +62,15 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+type AnalisisIA = {
+  resumenEjecutivo: string;
+  fortalezas: { titulo: string; evidencia: string }[];
+  areasOportunidad: { titulo: string; evidencia: string; severidad: "alta" | "media" | "baja" }[];
+  recomendaciones: { accion: string; impactoEsperado: string; prioridad: "alta" | "media" | "baja" }[];
+  sentimientoComentarios: "positivo" | "neutro" | "negativo" | "mixto";
+  citasDestacadas: string[];
+};
 
 type Comedor = { id: string; nombre: string; slug: string; activo: boolean };
 type Pregunta = {
@@ -224,6 +236,10 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>(emptyStats);
   const [prevStats, setPrevStats] = useState<Stats>(emptyStats);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnalisis, setAiAnalisis] = useState<AnalisisIA | null>(null);
+  const [reporteId, setReporteId] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   // Cargar comedores
   useEffect(() => {
@@ -302,6 +318,69 @@ export default function DashboardPage() {
     if (comedorId) void load(comedorId, desde, hasta);
   }, [comedorId, desde, hasta, load]);
 
+  // Reset análisis al cambiar filtros
+  useEffect(() => {
+    setAiAnalisis(null);
+    setReporteId(null);
+  }, [comedorId, desde, hasta]);
+
+  const runAnalysis = useCallback(async () => {
+    if (!comedorId) return;
+    setAiOpen(true);
+    setAiLoading(true);
+    setAiAnalisis(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("analyze-responses", {
+        body: {
+          comedorId,
+          fechaDesde: startOfDay(desde).toISOString(),
+          fechaHasta: addDays(startOfDay(hasta), 1).toISOString(),
+        },
+      });
+      if (error) {
+        const msg =
+          (error as { context?: { error?: string } })?.context?.error ?? error.message;
+        toast.error(msg || "No pudimos analizar las respuestas");
+        setAiOpen(false);
+        return;
+      }
+      if (!data?.analisis) {
+        toast.error(data?.error || "Respuesta inválida");
+        setAiOpen(false);
+        return;
+      }
+      setAiAnalisis(data.analisis);
+      setReporteId(data.reporteId ?? null);
+      toast.success("Análisis listo");
+    } catch (e) {
+      console.error(e);
+      toast.error("No pudimos analizar las respuestas");
+      setAiOpen(false);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [comedorId, desde, hasta]);
+
+  const downloadPdf = async () => {
+    if (!reporteId) return;
+    setPdfLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-report-pdf", {
+        body: { reporteId },
+      });
+      if (error || !data?.url) {
+        toast.error("No pudimos generar el PDF");
+        return;
+      }
+      window.open(data.url, "_blank");
+    } catch (e) {
+      console.error(e);
+      toast.error("No pudimos generar el PDF");
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const aplicar = () => {
     setComedorId(pendingComedor);
     setDesde(pendingDesde);
@@ -344,19 +423,30 @@ export default function DashboardPage() {
               <Button onClick={aplicar}>Aplicar filtros</Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setAiOpen(true)}>
+              <Button variant="outline" onClick={runAnalysis} disabled={aiLoading || !comedorId}>
                 <Brain className="mr-2 h-4 w-4" /> Analizar con IA
               </Button>
-              <UiTooltip>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0}>
-                    <Button variant="outline" disabled>
-                      <FileDown className="mr-2 h-4 w-4" /> Descargar reporte PDF
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Disponible tras análisis con IA</TooltipContent>
-              </UiTooltip>
+              {reporteId ? (
+                <Button variant="outline" onClick={downloadPdf} disabled={pdfLoading}>
+                  {pdfLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="mr-2 h-4 w-4" />
+                  )}
+                  Descargar reporte PDF
+                </Button>
+              ) : (
+                <UiTooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button variant="outline" disabled>
+                        <FileDown className="mr-2 h-4 w-4" /> Descargar reporte PDF
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Disponible tras análisis con IA</TooltipContent>
+                </UiTooltip>
+              )}
             </div>
           </div>
         </div>
@@ -511,15 +601,47 @@ export default function DashboardPage() {
         )}
 
         <Dialog open={aiOpen} onOpenChange={setAiOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5" /> Analizar con IA
+                <Brain className="h-5 w-5" /> Análisis con IA
               </DialogTitle>
-              <DialogDescription>Próximamente.</DialogDescription>
+              <DialogDescription>
+                Resumen ejecutivo generado a partir de las respuestas del rango seleccionado.
+              </DialogDescription>
             </DialogHeader>
-            <DialogFooter>
-              <Button onClick={() => setAiOpen(false)}>Cerrar</Button>
+
+            {aiLoading ? (
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-base font-medium">Analizando respuestas…</p>
+                <p className="text-sm text-muted-foreground">Esto toma entre 15 y 30 segundos.</p>
+              </div>
+            ) : aiAnalisis ? (
+              <AnalysisView analisis={aiAnalisis} />
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">Sin análisis.</p>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button variant="outline" onClick={() => setAiOpen(false)}>
+                Cerrar
+              </Button>
+              {aiAnalisis && !aiLoading && (
+                <>
+                  <Button variant="outline" onClick={runAnalysis}>
+                    <RefreshCw className="mr-2 h-4 w-4" /> Re-analizar
+                  </Button>
+                  <Button onClick={downloadPdf} disabled={pdfLoading || !reporteId}>
+                    {pdfLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileDown className="mr-2 h-4 w-4" />
+                    )}
+                    Descargar como PDF
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
