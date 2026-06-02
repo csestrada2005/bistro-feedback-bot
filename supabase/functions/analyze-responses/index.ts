@@ -143,9 +143,12 @@ Deno.serve(async (req) => {
     const encuestas = (eQ.data ?? []) as Encuesta[];
     const comedorNombre = (cQ.data as { nombre?: string } | null)?.nombre ?? "Comedor";
 
-    if (encuestas.length < 5) {
+    const MIN_ENCUESTAS = 3;
+    if (encuestas.length < MIN_ENCUESTAS) {
       return new Response(
-        JSON.stringify({ error: "Necesitas al menos 5 respuestas para análisis." }),
+        JSON.stringify({
+          error: `Aún no hay suficientes encuestas en el rango seleccionado para generar un análisis (${encuestas.length}/${MIN_ENCUESTAS}). Amplía las fechas o espera a recibir más respuestas.`,
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
