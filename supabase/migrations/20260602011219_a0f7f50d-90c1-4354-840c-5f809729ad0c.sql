@@ -1,0 +1,2 @@
+UPDATE auth.users SET email_confirmed_at = now() WHERE email = 'csestrada2005@outlook.com';
+INSERT INTO public.usuarios (id, nombre, rol) VALUES ('c9522ec6-c8e9-4919-858b-242ea230e2a2', 'Admin', 'admin') ON CONFLICT (id) DO UPDATE SET rol = 'admin';
