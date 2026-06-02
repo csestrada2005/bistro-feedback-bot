@@ -1,55 +1,29 @@
 ## Objetivo
-Separar la información en dos vistas:
-- **Vista privada (admin / operador interno)**: ve los datos crudos de las encuestas + análisis IA en vivo sobre todo lo crudo + permite editar y publicar un "reporte filtrado".
-- **Vista cliente**: solo ve los reportes que el admin haya publicado (KPIs, recomendaciones, alertas ya filtradas/editadas). Nunca ve respuestas individuales crudas.
+El rol `cliente` representa al **dueño de todos los comedores** (no de uno solo). Debe ver los reportes publicados de TODOS los comedores, sin estar atado a un `comedor_id`.
 
 ## Cambios en base de datos
 
-1. **Nuevo rol `cliente`** en el enum `user_rol` (ya existen `admin`, `operador`).
-2. **Tabla `reportes`** — añadir columnas:
-   - `titulo text`
-   - `estado text` con valores `borrador` / `publicado` (default `borrador`)
-   - `kpis jsonb` (KPIs editables: satisfacción, NPS, etc.)
-   - `recomendaciones jsonb` (lista editable de recomendaciones)
-   - `alertas jsonb` (lista editable de alertas)
-   - `resumen text` (texto editable del análisis)
-   - `publicado_at timestamptz`
-   - `publicado_por uuid`
-3. **RLS de `reportes`**:
-   - Admin: ALL (ya existe).
-   - Operador (de un comedor): ver borradores y publicados de su `comedor_id`.
-   - Cliente: solo `SELECT` donde `estado = 'publicado'` y `comedor_id = current_user_comedor()`.
-4. **Bloquear acceso crudo al cliente**: las policies `respuestas_select_*` y `encuestas_select_*` se quedan como están (admin/operador). El rol `cliente` no aparece en ninguna policy de respuestas/encuestas → no puede leerlas.
+1. **RLS de `reportes` para cliente** — reemplazar la policy actual `reportes_select_cliente`:
+   - Antes: `rol = 'cliente' AND comedor_id = current_user_comedor() AND estado = 'publicado'`
+   - Después: `rol = 'cliente' AND estado = 'publicado'` (sin filtro por comedor → ve todos los publicados)
+
+2. **`usuarios.comedor_id` para clientes**: queda como `NULL` (ya es nullable). El cliente no necesita comedor asignado.
+
+3. No se toca el resto de policies (admin/operador siguen igual).
 
 ## Cambios en frontend
 
-### Rutas
-- `/admin/*` → admin + operador (vista privada existente, con datos crudos).
-  - **Nueva página `/admin/reports/:id/edit`**: editor del reporte (IA sugiere → admin edita texto, KPIs, recomendaciones, alertas → botón "Publicar").
-  - En `/admin/responses` añadir botón "Generar borrador con IA" que crea un `reportes` en estado `borrador`.
-- `/cliente/*` → solo rol `cliente`.
-  - `/cliente/reportes`: lista de reportes publicados de su comedor.
-  - `/cliente/reportes/:id`: vista de solo lectura con KPIs, alertas, recomendaciones (el contenido publicado).
+1. **`/cliente/reportes`** (lista): mostrar columna "Comedor" para que el cliente sepa de qué comedor es cada reporte publicado. Añadir filtro/selector por comedor (opcional, dropdown con todos los comedores que tengan al menos un reporte publicado).
 
-### Auth / routing
-- `RequireAuth` acepta `allow={["cliente"]}` para las rutas `/cliente/*`.
-- Tras login: admin/operador → `/admin/dashboard`; cliente → `/cliente/reportes`.
-- Sidebar del cliente: simple (Reportes + logout).
+2. **`/cliente/reportes/:id`** (detalle): mostrar el nombre del comedor en el encabezado del reporte.
 
-### IA
-- **Vista privada – análisis en vivo** (ya existe `analyze-responses`): se sigue ejecutando sobre TODAS las respuestas crudas del rango.
-- **Vista privada – borrador editable**: nueva edge function `draft-report` que toma respuestas crudas + llama Lovable AI (`google/gemini-3-flash-preview`) con tool calling para devolver `{ resumen, kpis[], recomendaciones[], alertas[] }`, lo guarda en `reportes` como `borrador`. El admin edita en `/admin/reports/:id/edit` y pulsa "Publicar".
-- **Vista cliente**: NO llama a IA. Solo lee los campos ya guardados en `reportes` publicados.
+3. **`ClienteLayout`**: el saludo / sidebar no asume un comedor específico; muestra "Vista cliente — todos los comedores".
 
-## Detalles técnicos
+4. **Login redirect**: sin cambios (cliente → `/cliente/reportes`).
 
-- Enum update: `ALTER TYPE user_rol ADD VALUE 'cliente';`
-- `AuthProvider`/tipos: añadir `"cliente"` a `AdminRol` (renombrar tipo a `UserRol`).
-- Layout cliente nuevo `src/components/cliente/ClienteLayout.tsx` reutilizando estilos.
-- Edge function `draft-report` con `verify_jwt = true`, validación Zod del body `{ comedor_id, fecha_desde, fecha_hasta }`, devuelve `report_id`.
-- Edge function `publish-report` (o RPC) que cambia `estado` a `publicado` y setea `publicado_at`, `publicado_por`.
-- No tocamos `respuestas`/`encuestas` ni los datos existentes (siguen vacíos como pediste).
+5. **Creación de usuarios cliente** (si existe UI en `admin-users`): permitir crear cliente sin tener que elegir comedor (campo opcional / oculto para rol cliente).
 
 ## Fuera de alcance
-- No cambia el flujo de encuestas públicas ni la gestión de comedores/preguntas.
-- No se modifica la UX de admin existente más allá de añadir el botón de borrador y la página de edición/publicación.
+- No se cambia la lógica de admin ni operador.
+- No se modifica el flujo de generación / publicación de reportes.
+- No se cambian tablas de respuestas / encuestas.
