@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -6,6 +6,13 @@ import { FileText, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Row = {
   id: string;
@@ -13,35 +20,71 @@ type Row = {
   fecha_desde: string;
   fecha_hasta: string;
   publicado_at: string | null;
+  comedor_id: string;
+  comedores: { nombre: string } | null;
 };
 
 export default function ClienteReportesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [comedorFilter, setComedorFilter] = useState<string>("all");
 
   useEffect(() => {
     void (async () => {
       const { data, error } = await supabase
         .from("reportes")
-        .select("id, titulo, fecha_desde, fecha_hasta, publicado_at")
+        .select(
+          "id, titulo, fecha_desde, fecha_hasta, publicado_at, comedor_id, comedores(nombre)",
+        )
         .eq("estado", "publicado")
         .order("publicado_at", { ascending: false });
       if (error) {
         toast.error("No pudimos cargar tus reportes");
       } else {
-        setRows((data ?? []) as Row[]);
+        setRows((data ?? []) as unknown as Row[]);
       }
       setLoading(false);
     })();
   }, []);
 
+  const comedoresList = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach((r) => {
+      if (r.comedor_id && !map.has(r.comedor_id))
+        map.set(r.comedor_id, r.comedores?.nombre ?? "Comedor");
+    });
+    return Array.from(map.entries());
+  }, [rows]);
+
+  const filtered = useMemo(
+    () => (comedorFilter === "all" ? rows : rows.filter((r) => r.comedor_id === comedorFilter)),
+    [rows, comedorFilter],
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Tus reportes</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Análisis revisados y validados por el equipo Main Catering.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Tus reportes</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Análisis revisados y validados por el equipo Main Catering — todos tus comedores.
+          </p>
+        </div>
+        {comedoresList.length > 1 && (
+          <Select value={comedorFilter} onValueChange={setComedorFilter}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Filtrar por comedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los comedores</SelectItem>
+              {comedoresList.map(([id, nombre]) => (
+                <SelectItem key={id} value={id}>
+                  {nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
       {loading ? (
         <div className="space-y-2">
@@ -49,7 +92,7 @@ export default function ClienteReportesPage() {
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
-      ) : rows.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-16 text-center">
           <Inbox className="h-10 w-10 text-muted-foreground" />
           <p className="text-base font-medium">Aún no hay reportes publicados</p>
@@ -59,7 +102,7 @@ export default function ClienteReportesPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {rows.map((r) => (
+          {filtered.map((r) => (
             <li key={r.id}>
               <Link
                 to={`/cliente/reportes/${r.id}`}
@@ -74,6 +117,7 @@ export default function ClienteReportesPage() {
                       {r.titulo ?? "Reporte"}
                     </p>
                     <p className="text-xs text-muted-foreground">
+                      {r.comedores?.nombre && <>{r.comedores.nombre} · </>}
                       {format(new Date(r.fecha_desde), "dd MMM yyyy", { locale: es })} —{" "}
                       {format(new Date(r.fecha_hasta), "dd MMM yyyy", { locale: es })}
                     </p>

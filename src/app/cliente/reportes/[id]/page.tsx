@@ -20,6 +20,7 @@ type Reporte = {
   kpis: Kpi[];
   recomendaciones: Reco[];
   alertas: Alerta[];
+  comedores: { nombre: string } | null;
 };
 
 const sevColor: Record<string, string> = {
@@ -39,7 +40,7 @@ export default function ClienteReporteDetailPage() {
       const { data, error } = await supabase
         .from("reportes")
         .select(
-          "id, titulo, resumen, fecha_desde, fecha_hasta, publicado_at, kpis, recomendaciones, alertas",
+          "id, titulo, resumen, fecha_desde, fecha_hasta, publicado_at, kpis, recomendaciones, alertas, comedores(nombre)",
         )
         .eq("id", id)
         .eq("estado", "publicado")
@@ -73,6 +74,7 @@ export default function ClienteReporteDetailPage() {
         </Link>
         <h2 className="text-2xl font-bold text-foreground">{rep.titulo ?? "Reporte"}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
+          {rep.comedores?.nombre && <>{rep.comedores.nombre} · </>}
           {format(new Date(rep.fecha_desde), "dd MMM yyyy", { locale: es })} —{" "}
           {format(new Date(rep.fecha_hasta), "dd MMM yyyy", { locale: es })}
           {rep.publicado_at && (
