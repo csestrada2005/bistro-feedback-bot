@@ -76,18 +76,21 @@ export default function ReportEditPage() {
   const save = async (publish = false) => {
     if (publish) setPublishing(true); else setSaving(true);
     try {
-      const payload: Record<string, unknown> = {
+      const base = {
         titulo: rep.titulo,
         resumen: rep.resumen,
-        kpis: rep.kpis,
-        recomendaciones: rep.recomendaciones,
-        alertas: rep.alertas,
+        kpis: rep.kpis as unknown as never,
+        recomendaciones: rep.recomendaciones as unknown as never,
+        alertas: rep.alertas as unknown as never,
       };
-      if (publish) {
-        payload.estado = "publicado";
-        payload.publicado_at = new Date().toISOString();
-        payload.publicado_por = user?.id ?? null;
-      }
+      const payload = publish
+        ? {
+            ...base,
+            estado: "publicado",
+            publicado_at: new Date().toISOString(),
+            publicado_por: user?.id ?? null,
+          }
+        : base;
       const { error } = await supabase.from("reportes").update(payload).eq("id", rep.id);
       if (error) throw error;
       toast.success(publish ? "Reporte publicado" : "Cambios guardados");
