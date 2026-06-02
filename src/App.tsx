@@ -59,7 +59,7 @@ const App = () => (
 
             <Route
               element={
-                <RequireAuth>
+                <RequireAuth allow={["admin", "operador"]}>
                   <AdminLayout />
                 </RequireAuth>
               }
