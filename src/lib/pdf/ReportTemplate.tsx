@@ -40,7 +40,7 @@ export type ReportData = {
 // ----- Colors -----
 const C = {
   primary: "#0F172A",
-  accent: "#2563EB",
+  accent: "#D45A1A",
   text: "#1E293B",
   muted: "#64748B",
   border: "#E2E8F0",
