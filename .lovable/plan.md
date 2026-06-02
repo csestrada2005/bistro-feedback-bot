@@ -1,31 +1,22 @@
-# Fase 1 + 2 — Higiene crítica y entrega presentable
+## Objetivo
+Hacer que el sidebar del admin quede fijo al hacer scroll en el contenido, y agregar un botón para colapsarlo y aprovechar pantalla completa.
 
-## Ya ejecutado en este turno (no requiere build mode)
-- 🗑️ Eliminadas edge functions huérfanas `pdf-insights` y `generate-insights`.
-- 🏬 Precargados 15 comedores adicionales en estado **inactivo** (Arteche, Flowserve, UCQ, Kiewit, Telcel, Bimbo, Interceramic, Berlinerluft, Tec de Monterrey).
+## Cambios
 
-## Pendiente — requiere aprobación del plan
+### 1. `src/components/admin/AdminSidebar.tsx`
+- Cambiar el `<aside>` desktop de `h-screen` a `sticky top-0 h-screen` (ya está dentro de un `flex` en `AdminLayout`, así queda pegado al hacer scroll del `main`).
+- Agregar estado `collapsed` (persistido en `localStorage`).
+- Cuando `collapsed=true`: ancho `w-14` en lugar de `w-60`, ocultar textos (label de nav, branding, email), dejar solo iconos centrados.
+- Botón toggle (icono `PanelLeftClose` / `PanelLeftOpen` de lucide) en la parte superior del sidebar desktop. En móvil no aplica (ya tiene drawer).
+- Tooltips en los items cuando está colapsado para mantener legibilidad.
 
-### 1. Reset de contraseña
-- **`src/app/reset-password/page.tsx` (nuevo)** — formulario con dos campos (nueva contraseña + confirmar), validación mínima (≥8 caracteres, coinciden), llama `supabase.auth.updateUser({ password })`, toast + redirect a `/admin/dashboard`.
-- **`src/admin/auth/AuthProvider.tsx`** — al recibir el evento `PASSWORD_RECOVERY` de Supabase Auth, redirigir a `/reset-password` (sin tocar el flujo normal).
-- **`src/App.tsx`** — registrar la ruta pública `/reset-password` fuera de `RequireAuth`.
-- **`src/app/login/page.tsx`** — añadir enlace "¿Olvidaste tu contraseña?" que abre un mini-diálogo con un input de email y llama `supabase.auth.resetPasswordForEmail(email, { redirectTo: \`${origin}/reset-password\` })`. Toast de confirmación.
+### 2. `src/components/admin/AdminLayout.tsx`
+- Quitar `overflow-auto` del `<main>` y dejar que el scroll sea del documento (para que `sticky` funcione limpio). Alternativa: mantener `overflow-auto` en `main` y usar `sticky top-0` dentro de ese contenedor scrollable — funciona igual porque el aside está fuera del main.
+- Como el aside es hermano del contenedor scrollable y el wrapper exterior es `flex min-h-screen`, basta con `h-screen sticky top-0` en el aside. No requiere más cambios al layout.
 
-### 2. Branding Main Catering
-La cotización es para Main Catering, pero el panel usa el indigo genérico de shadcn. Sin tener su logo oficial, aplico una paleta cálida creíble de catering (naranja apetitoso + slate profundo) usando solo tokens HSL — fácil de re-tunear cuando me pases el logo real.
+### 3. Sin cambios en lógica de negocio, rutas, ni backend.
 
-- **`src/index.css`** — cambiar `--brand` de `226 71% 40%` (indigo) a `18 85% 45%` (naranja Main Catering); ajustar `--brand-soft` y `--primary` en consecuencia. Todo el panel, kiosko, badges y barras del dashboard heredan el cambio automáticamente.
-- **`src/lib/pdf/ReportTemplate.tsx`** — cambiar `C.accent` de `#2563EB` a `#D45A1A` para que el PDF refleje la misma identidad.
-- *(El sidebar y el kiosko ya usan `bg-brand` / `text-brand`, no requieren edición; el cambio en `index.css` los propaga.)*
-
-### 3. Plan para tu logo (siguiente iteración, no en este turno)
-Cuando me pases el logo en PNG/SVG transparente lo subo al bucket `pdf-branding` (ya existe) y lo intercambio por el ícono `UtensilsCrossed` del sidebar/kiosko y por un `<Image>` en el header del PDF. Sin logo no tiene sentido tocar esto ahora.
-
-## Fuera de scope (no se ejecuta hoy)
-- UI de gestión de operadores (`/admin/usuarios`) — la cotización original no la incluye.
-- Configuración de plantillas de email de auth con dominio Main Catering — los emails de reset salen con el dominio default de Lovable Cloud, que basta para arranque.
-
-## Archivos tocados
-- Modificados: `src/index.css`, `src/admin/auth/AuthProvider.tsx`, `src/app/login/page.tsx`, `src/App.tsx`, `src/lib/pdf/ReportTemplate.tsx`
-- Creado: `src/app/reset-password/page.tsx`
+## Notas técnicas
+- El drawer móvil se conserva intacto.
+- El header del admin (`AdminLayout` header) sigue siendo del contenido, no del sidebar — así el sidebar colapsado/expandido se ve uniforme.
+- Se respetan tokens semánticos (`bg-card`, `border-border`, `text-brand`).
