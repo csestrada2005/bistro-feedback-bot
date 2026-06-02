@@ -41,7 +41,8 @@ export default function LoginPage() {
 
   if (!loading && session && profile) {
     const from = (location.state as { from?: string } | null)?.from;
-    return <Navigate to={from ?? "/admin/dashboard"} replace />;
+    const home = profile.rol === "cliente" ? "/cliente/reportes" : "/admin/dashboard";
+    return <Navigate to={from ?? home} replace />;
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -63,7 +64,7 @@ export default function LoginPage() {
       }
       const { data: row } = await supabase
         .from("usuarios")
-        .select("id")
+        .select("id, rol")
         .eq("id", uid)
         .maybeSingle();
       if (!row) {
@@ -72,7 +73,8 @@ export default function LoginPage() {
         return;
       }
       toast.success("Sesión iniciada");
-      navigate("/admin/dashboard", { replace: true });
+      const home = row.rol === "cliente" ? "/cliente/reportes" : "/admin/dashboard";
+      navigate(home, { replace: true });
     } finally {
       setSubmitting(false);
     }
