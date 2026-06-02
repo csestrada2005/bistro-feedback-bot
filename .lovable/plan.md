@@ -1,22 +1,55 @@
 ## Objetivo
-Hacer que el sidebar del admin quede fijo al hacer scroll en el contenido, y agregar un botón para colapsarlo y aprovechar pantalla completa.
+Separar la información en dos vistas:
+- **Vista privada (admin / operador interno)**: ve los datos crudos de las encuestas + análisis IA en vivo sobre todo lo crudo + permite editar y publicar un "reporte filtrado".
+- **Vista cliente**: solo ve los reportes que el admin haya publicado (KPIs, recomendaciones, alertas ya filtradas/editadas). Nunca ve respuestas individuales crudas.
 
-## Cambios
+## Cambios en base de datos
 
-### 1. `src/components/admin/AdminSidebar.tsx`
-- Cambiar el `<aside>` desktop de `h-screen` a `sticky top-0 h-screen` (ya está dentro de un `flex` en `AdminLayout`, así queda pegado al hacer scroll del `main`).
-- Agregar estado `collapsed` (persistido en `localStorage`).
-- Cuando `collapsed=true`: ancho `w-14` en lugar de `w-60`, ocultar textos (label de nav, branding, email), dejar solo iconos centrados.
-- Botón toggle (icono `PanelLeftClose` / `PanelLeftOpen` de lucide) en la parte superior del sidebar desktop. En móvil no aplica (ya tiene drawer).
-- Tooltips en los items cuando está colapsado para mantener legibilidad.
+1. **Nuevo rol `cliente`** en el enum `user_rol` (ya existen `admin`, `operador`).
+2. **Tabla `reportes`** — añadir columnas:
+   - `titulo text`
+   - `estado text` con valores `borrador` / `publicado` (default `borrador`)
+   - `kpis jsonb` (KPIs editables: satisfacción, NPS, etc.)
+   - `recomendaciones jsonb` (lista editable de recomendaciones)
+   - `alertas jsonb` (lista editable de alertas)
+   - `resumen text` (texto editable del análisis)
+   - `publicado_at timestamptz`
+   - `publicado_por uuid`
+3. **RLS de `reportes`**:
+   - Admin: ALL (ya existe).
+   - Operador (de un comedor): ver borradores y publicados de su `comedor_id`.
+   - Cliente: solo `SELECT` donde `estado = 'publicado'` y `comedor_id = current_user_comedor()`.
+4. **Bloquear acceso crudo al cliente**: las policies `respuestas_select_*` y `encuestas_select_*` se quedan como están (admin/operador). El rol `cliente` no aparece en ninguna policy de respuestas/encuestas → no puede leerlas.
 
-### 2. `src/components/admin/AdminLayout.tsx`
-- Quitar `overflow-auto` del `<main>` y dejar que el scroll sea del documento (para que `sticky` funcione limpio). Alternativa: mantener `overflow-auto` en `main` y usar `sticky top-0` dentro de ese contenedor scrollable — funciona igual porque el aside está fuera del main.
-- Como el aside es hermano del contenedor scrollable y el wrapper exterior es `flex min-h-screen`, basta con `h-screen sticky top-0` en el aside. No requiere más cambios al layout.
+## Cambios en frontend
 
-### 3. Sin cambios en lógica de negocio, rutas, ni backend.
+### Rutas
+- `/admin/*` → admin + operador (vista privada existente, con datos crudos).
+  - **Nueva página `/admin/reports/:id/edit`**: editor del reporte (IA sugiere → admin edita texto, KPIs, recomendaciones, alertas → botón "Publicar").
+  - En `/admin/responses` añadir botón "Generar borrador con IA" que crea un `reportes` en estado `borrador`.
+- `/cliente/*` → solo rol `cliente`.
+  - `/cliente/reportes`: lista de reportes publicados de su comedor.
+  - `/cliente/reportes/:id`: vista de solo lectura con KPIs, alertas, recomendaciones (el contenido publicado).
 
-## Notas técnicas
-- El drawer móvil se conserva intacto.
-- El header del admin (`AdminLayout` header) sigue siendo del contenido, no del sidebar — así el sidebar colapsado/expandido se ve uniforme.
-- Se respetan tokens semánticos (`bg-card`, `border-border`, `text-brand`).
+### Auth / routing
+- `RequireAuth` acepta `allow={["cliente"]}` para las rutas `/cliente/*`.
+- Tras login: admin/operador → `/admin/dashboard`; cliente → `/cliente/reportes`.
+- Sidebar del cliente: simple (Reportes + logout).
+
+### IA
+- **Vista privada – análisis en vivo** (ya existe `analyze-responses`): se sigue ejecutando sobre TODAS las respuestas crudas del rango.
+- **Vista privada – borrador editable**: nueva edge function `draft-report` que toma respuestas crudas + llama Lovable AI (`google/gemini-3-flash-preview`) con tool calling para devolver `{ resumen, kpis[], recomendaciones[], alertas[] }`, lo guarda en `reportes` como `borrador`. El admin edita en `/admin/reports/:id/edit` y pulsa "Publicar".
+- **Vista cliente**: NO llama a IA. Solo lee los campos ya guardados en `reportes` publicados.
+
+## Detalles técnicos
+
+- Enum update: `ALTER TYPE user_rol ADD VALUE 'cliente';`
+- `AuthProvider`/tipos: añadir `"cliente"` a `AdminRol` (renombrar tipo a `UserRol`).
+- Layout cliente nuevo `src/components/cliente/ClienteLayout.tsx` reutilizando estilos.
+- Edge function `draft-report` con `verify_jwt = true`, validación Zod del body `{ comedor_id, fecha_desde, fecha_hasta }`, devuelve `report_id`.
+- Edge function `publish-report` (o RPC) que cambia `estado` a `publicado` y setea `publicado_at`, `publicado_por`.
+- No tocamos `respuestas`/`encuestas` ni los datos existentes (siguen vacíos como pediste).
+
+## Fuera de alcance
+- No cambia el flujo de encuestas públicas ni la gestión de comedores/preguntas.
+- No se modifica la UX de admin existente más allá de añadir el botón de borrador y la página de edición/publicación.

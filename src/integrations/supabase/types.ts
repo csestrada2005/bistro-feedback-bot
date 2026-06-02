@@ -310,7 +310,7 @@ export type Database = {
     Enums: {
       pregunta_tipo: "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3"
       question_kind: "scale_5" | "trend_3" | "recommend_3" | "comment"
-      user_rol: "admin" | "operador"
+      user_rol: "admin" | "operador" | "cliente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -440,7 +440,7 @@ export const Constants = {
     Enums: {
       pregunta_tipo: ["escala_5", "si_no", "texto_abierto", "texto_multiple_3"],
       question_kind: ["scale_5", "trend_3", "recommend_3", "comment"],
-      user_rol: ["admin", "operador"],
+      user_rol: ["admin", "operador", "cliente"],
     },
   },
 } as const
