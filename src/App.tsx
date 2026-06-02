@@ -15,6 +15,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LandingPage from "@/app/page";
 import LoginPage from "@/app/login/page";
 import NotFoundPage from "@/app/not-found/page";
+import ResetPasswordPage from "@/app/reset-password/page";
 import Forbidden from "@/admin/pages/Forbidden";
 import NoAccess from "@/admin/pages/NoAccess";
 
@@ -46,6 +47,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/survey/:slug" element={<PublicSurveyPage />} />
 
             <Route path="/admin/forbidden" element={<Forbidden />} />

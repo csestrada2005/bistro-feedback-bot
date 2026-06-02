@@ -60,6 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setTimeout(() => void loadProfile(newSession?.user?.id), 0);
+      if (event === "PASSWORD_RECOVERY") {
+        if (window.location.pathname !== "/reset-password") {
+          window.location.replace("/reset-password");
+        }
+        return;
+      }
       if (event === "TOKEN_REFRESHED" && !newSession) {
         // Sesión expirada
         if (window.location.pathname.startsWith("/admin")) {

@@ -8,6 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/admin/auth/AuthProvider";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function LoginPage() {
   const { session, profile, loading, signIn } = useAuth();
@@ -18,6 +27,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
 
   useEffect(() => {
     if (params.get("expired") === "1") {
@@ -63,6 +75,27 @@ export default function LoginPage() {
       navigate("/admin/dashboard", { replace: true });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleForgot = async (e: FormEvent) => {
+    e.preventDefault();
+    const target = forgotEmail.trim();
+    if (!target) return;
+    setForgotSubmitting(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(target, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) {
+        toast.error("No pudimos enviar el correo. Intenta de nuevo.");
+        return;
+      }
+      toast.success("Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.");
+      setForgotOpen(false);
+      setForgotEmail("");
+    } finally {
+      setForgotSubmitting(false);
     }
   };
 
@@ -115,6 +148,46 @@ export default function LoginPage() {
             Iniciar sesión
           </Button>
         </form>
+
+        <div className="mt-4 text-center">
+          <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                className="text-sm text-brand hover:underline"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Restablecer contraseña</DialogTitle>
+                <DialogDescription>
+                  Te enviaremos un enlace a tu correo para definir una nueva contraseña.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleForgot} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-email">Correo electrónico</Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    required
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="tucorreo@empresa.com"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={forgotSubmitting || !forgotEmail.trim()}>
+                    {forgotSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Enviar enlace
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </main>
   );

@@ -1,42 +1,31 @@
+# Fase 1 + 2 — Higiene crítica y entrega presentable
 
-## Auditoría de criterios de aceptación
+## Ya ejecutado en este turno (no requiere build mode)
+- 🗑️ Eliminadas edge functions huérfanas `pdf-insights` y `generate-insights`.
+- 🏬 Precargados 15 comedores adicionales en estado **inactivo** (Arteche, Flowserve, UCQ, Kiewit, Telcel, Bimbo, Interceramic, Berlinerluft, Tec de Monterrey).
 
-Reviso el spec contra el código actual y solo queda **una pieza faltante**: la página `/admin/comedores` es un placeholder. Todo lo demás ya está implementado:
+## Pendiente — requiere aprobación del plan
 
-| Criterio | Estado | Dónde |
-|---|---|---|
-| Crear comedor y encuesta con preguntas de distinto tipo | ⚠️ Preguntas sí; **comedores no tiene CRUD UI** | `admin/questions/page.tsx` ✅ / `admin/comedores/page.tsx` ❌ |
-| Responder desde pantalla pública y guardar con `comedor_id` | ✅ | `public-survey/[slug]/page.tsx` |
-| Comentario abierto se guarda y aparece en panel | ✅ (como `valor_texto` de tipo `texto_abierto` / `texto_multiple_3`) | kiosko + `responses/page.tsx` |
-| Reset automático tras enviar | ✅ (5s countdown) | `public-survey` línea 127–141 |
-| Dashboard con KPIs y gráficas filtradas por comedor/fecha | ✅ | `admin/dashboard/page.tsx` |
-| "Sugerir preguntas con IA" | ✅ | botón en `questions/page.tsx` → edge `suggest-questions` |
-| "Generar análisis con IA" | ✅ | botón en `dashboard/page.tsx` → edge `analyze-responses` |
-| API key de IA en edge functions, no en cliente | ✅ | `LOVABLE_API_KEY` en secrets |
-| Descargar reporte PDF con KPIs + análisis | ✅ | `lib/pdf/generateReportPdf.ts` + `pdf-insights` edge |
-| Admin con login; pública sin login | ✅ | `RequireAuth` + RLS abierta en kiosko |
+### 1. Reset de contraseña
+- **`src/app/reset-password/page.tsx` (nuevo)** — formulario con dos campos (nueva contraseña + confirmar), validación mínima (≥8 caracteres, coinciden), llama `supabase.auth.updateUser({ password })`, toast + redirect a `/admin/dashboard`.
+- **`src/admin/auth/AuthProvider.tsx`** — al recibir el evento `PASSWORD_RECOVERY` de Supabase Auth, redirigir a `/reset-password` (sin tocar el flujo normal).
+- **`src/App.tsx`** — registrar la ruta pública `/reset-password` fuera de `RequireAuth`.
+- **`src/app/login/page.tsx`** — añadir enlace "¿Olvidaste tu contraseña?" que abre un mini-diálogo con un input de email y llama `supabase.auth.resetPasswordForEmail(email, { redirectTo: \`${origin}/reset-password\` })`. Toast de confirmación.
 
-## Único cambio a implementar
+### 2. Branding Main Catering
+La cotización es para Main Catering, pero el panel usa el indigo genérico de shadcn. Sin tener su logo oficial, aplico una paleta cálida creíble de catering (naranja apetitoso + slate profundo) usando solo tokens HSL — fácil de re-tunear cuando me pases el logo real.
 
-**Página `/admin/comedores` con CRUD completo:**
+- **`src/index.css`** — cambiar `--brand` de `226 71% 40%` (indigo) a `18 85% 45%` (naranja Main Catering); ajustar `--brand-soft` y `--primary` en consecuencia. Todo el panel, kiosko, badges y barras del dashboard heredan el cambio automáticamente.
+- **`src/lib/pdf/ReportTemplate.tsx`** — cambiar `C.accent` de `#2563EB` a `#D45A1A` para que el PDF refleje la misma identidad.
+- *(El sidebar y el kiosko ya usan `bg-brand` / `text-brand`, no requieren edición; el cambio en `index.css` los propaga.)*
 
-- Tabla con: nombre, empresa cliente, slug, estado (activo/inactivo), nº encuestas recibidas.
-- Botón **Nuevo comedor** → modal con campos `nombre`, `empresa_cliente`, `slug` (auto-generado desde nombre, editable, validar unicidad y formato `[a-z0-9-]+`).
-- Editar (mismo modal).
-- Switch activar/desactivar (optimistic, actualiza `activo`).
-- Acción **Copiar URL kiosko** (`{origin}/survey/{slug}`) con toast.
-- Acción **Abrir kiosko** (nueva pestaña).
-- Borrar solo si no tiene encuestas asociadas (igual que en preguntas: chequear count y bloquear con toast); si tiene, sugerir desactivar.
-- Loading skeleton + empty state coherentes con el resto del admin.
+### 3. Plan para tu logo (siguiente iteración, no en este turno)
+Cuando me pases el logo en PNG/SVG transparente lo subo al bucket `pdf-branding` (ya existe) y lo intercambio por el ícono `UtensilsCrossed` del sidebar/kiosko y por un `<Image>` en el header del PDF. Sin logo no tiene sentido tocar esto ahora.
 
-Sin cambios de schema (la tabla `comedores` ya tiene todos los campos). Sin tocar edge functions ni kiosko.
+## Fuera de scope (no se ejecuta hoy)
+- UI de gestión de operadores (`/admin/usuarios`) — la cotización original no la incluye.
+- Configuración de plantillas de email de auth con dominio Main Catering — los emails de reset salen con el dominio default de Lovable Cloud, que basta para arranque.
 
-## Detalles técnicos
-
-- Archivo: reemplazar contenido de `src/app/admin/comedores/page.tsx`.
-- Reutilizar componentes shadcn ya importados en `questions/page.tsx` (`Dialog`, `AlertDialog`, `Table`, `Switch`, `Input`, `Label`).
-- RLS: las políticas `comedores_admin_all` ya permiten INSERT/UPDATE/DELETE a admins autenticados → no hay que cambiar nada.
-- Slug helper: normalizar (`toLowerCase`, reemplazar acentos, espacios → `-`, strip no permitidos). Validar en cliente y dejar que la DB rechace duplicados (constraint UNIQUE existente).
-- Contador de encuestas por comedor: una sola query `select comedor_id, count(*) from encuestas group by comedor_id` (vía `.select('comedor_id', { count: 'exact', head: false })` o agregando en cliente — preferir batch en cliente con un `in()` de ids para mantenerlo simple).
-
-Tras aprobar este plan paso a build mode e implemento.
+## Archivos tocados
+- Modificados: `src/index.css`, `src/admin/auth/AuthProvider.tsx`, `src/app/login/page.tsx`, `src/App.tsx`, `src/lib/pdf/ReportTemplate.tsx`
+- Creado: `src/app/reset-password/page.tsx`
