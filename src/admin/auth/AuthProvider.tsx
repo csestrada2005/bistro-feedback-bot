@@ -10,7 +10,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AdminRol = "admin" | "operador";
+export type AdminRol = "admin" | "operador" | "cliente";
 
 export type AdminProfile = {
   id: string;

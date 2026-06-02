@@ -270,7 +270,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Guardar reporte (sin pdf todavía)
+    // Mapeo a campos editables (vista cliente lee de aquí cuando estado=publicado)
+    const titulo = `${comedorNombre} · ${fechaDesde.slice(0, 10)} → ${fechaHasta.slice(0, 10)}`;
+    const kpis = [
+      { label: "Encuestas", value: String(payload.stats.totalEncuestas) },
+      ...(payload.stats.promedioGeneral != null
+        ? [{ label: "Satisfacción promedio", value: `${payload.stats.promedioGeneral}/5` }]
+        : []),
+      ...(payload.stats.pctIncidentes != null
+        ? [{ label: "% incidentes", value: `${payload.stats.pctIncidentes}%` }]
+        : []),
+      { label: "Propuestas de mejora", value: String(payload.stats.totalPropuestasMejora) },
+      { label: "Propuestas de menú", value: String(payload.stats.totalPropuestasMenu) },
+    ];
+    const recomendaciones = (analisis.recomendaciones ?? []).map((r: { accion?: string; impactoEsperado?: string; prioridad?: string }) => ({
+      titulo: r.accion ?? "",
+      detalle: r.impactoEsperado ?? "",
+      prioridad: r.prioridad ?? "media",
+    }));
+    const alertas = (analisis.areasOportunidad ?? []).map((a: { titulo?: string; evidencia?: string; severidad?: string }) => ({
+      titulo: a.titulo ?? "",
+      detalle: a.evidencia ?? "",
+      severidad: a.severidad ?? "media",
+    }));
+
+    // Guardar reporte como borrador (admin lo edita y publica para el cliente)
     const { data: reporte, error: repErr } = await supabase
       .from("reportes")
       .insert({
@@ -279,6 +303,12 @@ Deno.serve(async (req) => {
         fecha_hasta: fechaHasta.slice(0, 10),
         analisis_ia: analisis,
         generado_por: userId,
+        titulo,
+        estado: "borrador",
+        resumen: analisis.resumenEjecutivo ?? "",
+        kpis,
+        recomendaciones,
+        alertas,
       })
       .select("id")
       .single();

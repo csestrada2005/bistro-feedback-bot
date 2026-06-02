@@ -113,33 +113,57 @@ export type Database = {
       }
       reportes: {
         Row: {
+          alertas: Json
           analisis_ia: Json | null
           comedor_id: string
           created_at: string
+          estado: string
           fecha_desde: string
           fecha_hasta: string
           generado_por: string | null
           id: string
+          kpis: Json
+          publicado_at: string | null
+          publicado_por: string | null
+          recomendaciones: Json
+          resumen: string | null
+          titulo: string | null
           url_pdf: string | null
         }
         Insert: {
+          alertas?: Json
           analisis_ia?: Json | null
           comedor_id: string
           created_at?: string
+          estado?: string
           fecha_desde: string
           fecha_hasta: string
           generado_por?: string | null
           id?: string
+          kpis?: Json
+          publicado_at?: string | null
+          publicado_por?: string | null
+          recomendaciones?: Json
+          resumen?: string | null
+          titulo?: string | null
           url_pdf?: string | null
         }
         Update: {
+          alertas?: Json
           analisis_ia?: Json | null
           comedor_id?: string
           created_at?: string
+          estado?: string
           fecha_desde?: string
           fecha_hasta?: string
           generado_por?: string | null
           id?: string
+          kpis?: Json
+          publicado_at?: string | null
+          publicado_por?: string | null
+          recomendaciones?: Json
+          resumen?: string | null
+          titulo?: string | null
           url_pdf?: string | null
         }
         Relationships: [
@@ -310,7 +334,7 @@ export type Database = {
     Enums: {
       pregunta_tipo: "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3"
       question_kind: "scale_5" | "trend_3" | "recommend_3" | "comment"
-      user_rol: "admin" | "operador"
+      user_rol: "admin" | "operador" | "cliente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -440,7 +464,7 @@ export const Constants = {
     Enums: {
       pregunta_tipo: ["escala_5", "si_no", "texto_abierto", "texto_multiple_3"],
       question_kind: ["scale_5", "trend_3", "recommend_3", "comment"],
-      user_rol: ["admin", "operador"],
+      user_rol: ["admin", "operador", "cliente"],
     },
   },
 } as const

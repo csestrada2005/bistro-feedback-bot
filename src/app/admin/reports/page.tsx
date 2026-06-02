@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { FileDown, Loader2, Inbox } from "lucide-react";
+import { FileDown, Loader2, Inbox, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -26,6 +28,8 @@ type Row = {
   created_at: string;
   generado_por: string | null;
   generado_por_nombre: string | null;
+  estado: string;
+  titulo: string | null;
 };
 
 export default function ReportsPage() {
@@ -38,7 +42,7 @@ export default function ReportsPage() {
       setLoading(true);
       const { data: reportes, error } = await supabase
         .from("reportes")
-        .select("id, comedor_id, fecha_desde, fecha_hasta, created_at, generado_por")
+        .select("id, comedor_id, fecha_desde, fecha_hasta, created_at, generado_por, estado, titulo")
         .order("created_at", { ascending: false });
       if (error) {
         toast.error("No pudimos cargar los reportes");
@@ -70,6 +74,8 @@ export default function ReportsPage() {
           created_at: r.created_at,
           generado_por: r.generado_por,
           generado_por_nombre: r.generado_por ? uById.get(r.generado_por)?.nombre ?? "—" : "—",
+          estado: r.estado ?? "borrador",
+          titulo: r.titulo ?? null,
         }))
       );
       setLoading(false);
@@ -121,6 +127,7 @@ export default function ReportsPage() {
                 <TableHead>Fecha generación</TableHead>
                 <TableHead>Comedor</TableHead>
                 <TableHead>Rango analizado</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead>Generado por</TableHead>
                 <TableHead className="text-right">Acción</TableHead>
               </TableRow>
@@ -141,8 +148,19 @@ export default function ReportsPage() {
                     {format(new Date(r.fecha_desde), "dd/MM/yyyy")} —{" "}
                     {format(new Date(r.fecha_hasta), "dd/MM/yyyy")}
                   </TableCell>
+                  <TableCell>
+                    <Badge variant={r.estado === "publicado" ? "default" : "outline"}>
+                      {r.estado}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-sm">{r.generado_por_nombre}</TableCell>
                   <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link to={`/admin/reports/${r.id}/edit`}>
+                        <Pencil className="mr-2 h-4 w-4" /> Editar
+                      </Link>
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -156,6 +174,7 @@ export default function ReportsPage() {
                       )}
                       Descargar
                     </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

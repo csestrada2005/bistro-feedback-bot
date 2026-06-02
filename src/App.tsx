@@ -10,6 +10,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/admin/auth/AuthProvider";
 import { RequireAuth } from "@/admin/auth/RequireAuth";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ClienteLayout } from "@/components/cliente/ClienteLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import LandingPage from "@/app/page";
@@ -25,6 +26,9 @@ const QuestionsPage = lazy(() => import("@/app/admin/questions/page"));
 const ResponsesPage = lazy(() => import("@/app/admin/responses/page"));
 const ReportsPage = lazy(() => import("@/app/admin/reports/page"));
 const ComedoresPage = lazy(() => import("@/app/admin/comedores/page"));
+const ReportEditPage = lazy(() => import("@/app/admin/reports/[id]/edit/page"));
+const ClienteReportesPage = lazy(() => import("@/app/cliente/reportes/page"));
+const ClienteReporteDetailPage = lazy(() => import("@/app/cliente/reportes/[id]/page"));
 
 const RouteFallback = () => (
   <div className="flex min-h-screen items-center justify-center">
@@ -55,7 +59,7 @@ const App = () => (
 
             <Route
               element={
-                <RequireAuth>
+                <RequireAuth allow={["admin", "operador"]}>
                   <AdminLayout />
                 </RequireAuth>
               }
@@ -64,7 +68,19 @@ const App = () => (
               <Route path="/admin/questions" element={<QuestionsPage />} />
               <Route path="/admin/responses" element={<ResponsesPage />} />
               <Route path="/admin/reports" element={<ReportsPage />} />
+              <Route path="/admin/reports/:id/edit" element={<ReportEditPage />} />
               <Route path="/admin/comedores" element={<ComedoresPage />} />
+            </Route>
+
+            <Route
+              element={
+                <RequireAuth allow={["cliente"]}>
+                  <ClienteLayout />
+                </RequireAuth>
+              }
+            >
+              <Route path="/cliente/reportes" element={<ClienteReportesPage />} />
+              <Route path="/cliente/reportes/:id" element={<ClienteReporteDetailPage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />
