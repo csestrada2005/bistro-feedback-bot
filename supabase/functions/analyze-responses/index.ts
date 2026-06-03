@@ -1,5 +1,11 @@
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 type Tipo = "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3";
 type Pregunta = { id: string; texto: string; tipo: Tipo; orden: number };
