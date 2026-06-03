@@ -170,12 +170,11 @@ export default function PublicSurveyPage() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const { data: encuesta, error: encErr } = await supabase
+      const encuestaId = crypto.randomUUID();
+      const { error: encErr } = await supabase
         .from("encuestas")
-        .insert({ comedor_id: comedor.id })
-        .select("id")
-        .single();
-      if (encErr || !encuesta) throw encErr ?? new Error("No encuesta");
+        .insert({ id: encuestaId, comedor_id: comedor.id });
+      if (encErr) throw encErr;
 
       const rows: {
         encuesta_id: string;
@@ -189,15 +188,15 @@ export default function PublicSurveyPage() {
         const a = answers[p.id];
         if (!a) continue;
         if (p.tipo === "escala_5" && a.numerico) {
-          rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: a.numerico, valor_booleano: null, valor_texto: null });
+          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: a.numerico, valor_booleano: null, valor_texto: null });
         } else if (p.tipo === "si_no" && typeof a.booleano === "boolean") {
-          rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: null, valor_booleano: a.booleano, valor_texto: a.texto?.trim() || null });
+          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: a.booleano, valor_texto: a.texto?.trim() || null });
         } else if (p.tipo === "texto_abierto" && a.texto?.trim()) {
-          rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: a.texto.trim() });
+          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: a.texto.trim() });
         } else if (p.tipo === "texto_multiple_3" && a.textos) {
           const joined = a.textos.map((t) => t.trim()).filter(Boolean).join(" | ");
           if (joined) {
-            rows.push({ encuesta_id: encuesta.id, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: joined });
+            rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: joined });
           }
         }
       }
