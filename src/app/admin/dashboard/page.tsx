@@ -388,8 +388,9 @@ export default function DashboardPage() {
       await downloadReportPdf(reporteId);
       toast.success("Reporte descargado");
     } catch (e) {
-      console.error(e);
-      toast.error("No pudimos generar el PDF");
+      console.error("PDF error:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`No pudimos generar el PDF: ${msg}`);
     } finally {
       setPdfLoading(false);
     }
