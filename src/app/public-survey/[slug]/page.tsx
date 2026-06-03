@@ -299,7 +299,10 @@ export default function PublicSurveyPage() {
                       key={opt.value}
                       onClick={() => {
                         setAnswers((a) => ({ ...a, [currentQ.id]: { numerico: opt.value } }));
-                        setTimeout(() => setStep((s) => s + 1), 120);
+                        setTimeout(() => {
+                          if (step === total) void submit();
+                          else setStep((s) => s + 1);
+                        }, 120);
                       }}
                       aria-label={`${opt.value} ${opt.label}`}
                       className={cn(
@@ -330,7 +333,10 @@ export default function PublicSurveyPage() {
                             ...a,
                             [currentQ.id]: { booleano: val, texto: val ? a[currentQ.id]?.texto ?? "" : "" },
                           }));
-                          if (!val) setTimeout(() => setStep((s) => s + 1), 120);
+                          if (!val) setTimeout(() => {
+                            if (step === total) void submit();
+                            else setStep((s) => s + 1);
+                          }, 120);
                         }}
                         className={cn(
                           "flex min-h-[160px] items-center justify-center rounded-3xl border-2 text-4xl font-extrabold transition-transform active:scale-95",
@@ -361,10 +367,11 @@ export default function PublicSurveyPage() {
                       placeholder="Describe el incidente..."
                     />
                     <Button
-                      onClick={() => setStep((s) => s + 1)}
+                      onClick={() => (step === total ? void submit() : setStep((s) => s + 1))}
+                      disabled={submitting}
                       className="mt-6 h-20 w-full rounded-2xl bg-brand text-2xl font-bold text-brand-foreground hover:bg-brand active:scale-95"
                     >
-                      Continuar
+                      {step === total ? "Enviar encuesta" : "Continuar"}
                     </Button>
                   </div>
                 )}
