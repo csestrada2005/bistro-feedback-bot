@@ -91,12 +91,18 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnon, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    // Extraer userId del JWT (la plataforma ya verificó el token)
+    let userId: string | null = null;
+    try {
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      userId = payload?.sub ?? null;
+    } catch (_) {
+      userId = null;
+    }
     if (!userId) {
       return new Response(JSON.stringify({ error: "Sesión inválida" }), {
         status: 401,
