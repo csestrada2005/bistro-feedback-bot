@@ -520,25 +520,58 @@ export default function QuestionsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Aplica a</Label>
-              <Select
-                value={form.comedor_id ?? ALL}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, comedor_id: v === ALL ? null : v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>Todos los comedores</SelectItem>
-                  {comedores.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      Solo {c.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label>Comedores asignados</Label>
+                <div className="flex gap-2 text-xs">
+                  <button
+                    type="button"
+                    className="text-brand hover:underline"
+                    onClick={() =>
+                      setForm((f) => ({ ...f, comedorIds: comedores.map((c) => c.id) }))
+                    }
+                  >
+                    Todos
+                  </button>
+                  <span className="text-muted-foreground">·</span>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:underline"
+                    onClick={() => setForm((f) => ({ ...f, comedorIds: [] }))}
+                  >
+                    Ninguno
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border p-3">
+                {comedores.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No hay comedores aún.</p>
+                )}
+                {comedores.map((c) => {
+                  const checked = form.comedorIds.includes(c.id);
+                  return (
+                    <label
+                      key={c.id}
+                      className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) =>
+                          setForm((f) => ({
+                            ...f,
+                            comedorIds: v
+                              ? [...f.comedorIds, c.id]
+                              : f.comedorIds.filter((x) => x !== c.id),
+                          }))
+                        }
+                      />
+                      <span className="text-sm">{c.nombre}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Las preguntas se muestran rotando de 5 en 5 en cada encuesta del comedor.
+              </p>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div>
