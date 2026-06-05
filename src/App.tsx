@@ -26,6 +26,7 @@ const QuestionsPage = lazy(() => import("@/app/admin/questions/page"));
 const ResponsesPage = lazy(() => import("@/app/admin/responses/page"));
 const ReportsPage = lazy(() => import("@/app/admin/reports/page"));
 const ComedoresPage = lazy(() => import("@/app/admin/comedores/page"));
+const RolesPage = lazy(() => import("@/app/admin/roles/page"));
 const ReportEditPage = lazy(() => import("@/app/admin/reports/[id]/edit/page"));
 const ClienteReportesPage = lazy(() => import("@/app/cliente/reportes/page"));
 const ClienteReporteDetailPage = lazy(() => import("@/app/cliente/reportes/[id]/page"));
@@ -70,6 +71,14 @@ const App = () => (
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/reports/:id/edit" element={<ReportEditPage />} />
               <Route path="/admin/comedores" element={<ComedoresPage />} />
+              <Route
+                path="/admin/roles"
+                element={
+                  <RequireAuth allow={["admin"]}>
+                    <RolesPage />
+                  </RequireAuth>
+                }
+              />
             </Route>
 
             <Route
