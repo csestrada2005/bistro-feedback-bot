@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,9 +52,7 @@ export default function ResetPasswordPage() {
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
+          <BrandLogo className="h-12 w-12 rounded-lg" />
           <div>
             <h1 className="text-xl font-bold text-foreground">Nueva contraseña</h1>
             <p className="text-sm text-muted-foreground">Define tu nueva contraseña de acceso</p>

@@ -1,6 +1,7 @@
 import { Outlet, useLocation, NavLink } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { FileText, LogOut, UtensilsCrossed } from "lucide-react";
+import { FileText, LogOut } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/admin/auth/AuthProvider";
 import { cn } from "@/lib/utils";
@@ -22,8 +23,8 @@ export function ClienteLayout() {
       </Helmet>
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
         <div className="flex items-center gap-2 px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-            <UtensilsCrossed className="h-5 w-5" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white ring-1 ring-border">
+            <BrandLogo className="h-8 w-8" />
           </div>
           <div className="leading-tight">
             <p className="text-sm font-bold text-foreground">Main Catering</p>

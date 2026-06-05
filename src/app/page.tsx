@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const prefetchSurvey = () => {
   void import("@/app/public-survey/[slug]/page");
@@ -21,9 +22,7 @@ export default function LandingPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
-      <span className="mb-4 inline-flex items-center rounded-full bg-brand-soft px-4 py-1.5 text-sm font-semibold text-brand">
-        Main Catering
-      </span>
+      <BrandLogo className="mb-6 h-24 w-auto" />
       <h1 className="max-w-2xl text-5xl font-extrabold text-foreground">
         Plataforma de satisfacción de comedores
       </h1>
