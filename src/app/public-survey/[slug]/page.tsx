@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { KioskLayout } from "@/components/survey/KioskLayout";
+import { BrandLogo } from "@/components/BrandLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -266,7 +267,7 @@ export default function PublicSurveyPage() {
               aria-label="Main Catering"
               className="mb-6 inline-flex items-center rounded-2xl bg-white p-2 select-none"
             >
-              <BrandLogoImg className="h-24 w-auto" />
+              <BrandLogo className="h-24 w-auto" />
             </button>
             <h1 className="text-5xl font-extrabold leading-tight text-foreground sm:text-6xl">
               {comedor.nombre}
