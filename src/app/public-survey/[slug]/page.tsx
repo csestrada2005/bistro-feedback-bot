@@ -61,12 +61,10 @@ export default function PublicSurveyPage() {
         return;
       }
       setComedor(com as Comedor);
-      const { data: qs } = await supabase
-        .from("preguntas")
-        .select("id, texto, tipo, orden")
-        .eq("activa", true)
-        .or(`comedor_id.is.null,comedor_id.eq.${com.id}`)
-        .order("orden", { ascending: true });
+      const { data: qs, error: qErr } = await supabase.rpc("get_next_survey_questions", {
+        p_comedor_id: com.id,
+      });
+      if (qErr) console.error("rotation error", qErr);
       setPreguntas((qs ?? []) as Pregunta[]);
       setLoading(false);
       // RUM: cargar el módulo en idle para no competir con el primer render.
