@@ -6,6 +6,7 @@ import {
   Inbox,
   FileText,
   Store,
+  ShieldCheck,
   LogOut,
   Menu,
   X,
@@ -24,6 +25,7 @@ const ITEMS = [
   { to: "/admin/responses", label: "Respuestas", icon: Inbox },
   { to: "/admin/reports", label: "Reportes", icon: FileText },
   { to: "/admin/comedores", label: "Comedores", icon: Store },
+  { to: "/admin/roles", label: "Roles", icon: ShieldCheck },
 ];
 
 function SidebarBody({
