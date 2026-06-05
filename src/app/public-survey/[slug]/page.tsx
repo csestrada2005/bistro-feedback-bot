@@ -22,11 +22,10 @@ type Pregunta = {
 type Comedor = { id: string; slug: string; nombre: string };
 
 const SCALE_OPTIONS = [
-  { value: 1, label: "Deficiente", emoji: "😣", classes: "bg-red-500 hover:bg-red-600 text-white border-red-600" },
-  { value: 2, label: "Malo", emoji: "🙁", classes: "bg-orange-500 hover:bg-orange-600 text-white border-orange-600" },
-  { value: 3, label: "Regular", emoji: "😐", classes: "bg-yellow-400 hover:bg-yellow-500 text-foreground border-yellow-500" },
-  { value: 4, label: "Bueno", emoji: "🙂", classes: "bg-lime-500 hover:bg-lime-600 text-white border-lime-600" },
-  { value: 5, label: "Muy bueno", emoji: "😋", classes: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700" },
+  { value: 5, label: "Excelente", emoji: "😋", classes: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700" },
+  { value: 4, label: "Muy bueno", emoji: "🙂", classes: "bg-lime-500 hover:bg-lime-600 text-white border-lime-600" },
+  { value: 3, label: "Bueno", emoji: "😐", classes: "bg-yellow-400 hover:bg-yellow-500 text-foreground border-yellow-500" },
+  { value: 2, label: "Área de oportunidad", emoji: "💡", classes: "bg-sky-500 hover:bg-sky-600 text-white border-sky-600" },
 ];
 
 type AnswerMap = Record<string, { numerico?: number; booleano?: boolean; texto?: string; textos?: string[] }>;
@@ -291,7 +290,7 @@ export default function PublicSurveyPage() {
             </h2>
 
             {currentQ.tipo === "escala_5" && (
-              <div className="mt-10 grid grid-cols-5 gap-2 sm:mt-12 sm:gap-4">
+              <div className="mt-10 grid grid-cols-4 gap-2 sm:mt-12 sm:gap-4">
                 {SCALE_OPTIONS.map((opt) => {
                   const selected = answers[currentQ.id]?.numerico === opt.value;
                   return (
