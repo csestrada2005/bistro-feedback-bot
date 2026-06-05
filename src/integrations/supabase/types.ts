@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      comedor_preguntas: {
+        Row: {
+          comedor_id: string
+          created_at: string
+          pregunta_id: string
+        }
+        Insert: {
+          comedor_id: string
+          created_at?: string
+          pregunta_id: string
+        }
+        Update: {
+          comedor_id?: string
+          created_at?: string
+          pregunta_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comedor_preguntas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comedor_preguntas_pregunta_id_fkey"
+            columns: ["pregunta_id"]
+            isOneToOne: false
+            referencedRelation: "preguntas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comedores: {
         Row: {
           activo: boolean
@@ -21,6 +54,7 @@ export type Database = {
           empresa_cliente: string
           id: string
           nombre: string
+          rotation_offset: number
           slug: string
         }
         Insert: {
@@ -29,6 +63,7 @@ export type Database = {
           empresa_cliente: string
           id?: string
           nombre: string
+          rotation_offset?: number
           slug: string
         }
         Update: {
@@ -37,6 +72,7 @@ export type Database = {
           empresa_cliente?: string
           id?: string
           nombre?: string
+          rotation_offset?: number
           slug?: string
         }
         Relationships: []
@@ -328,6 +364,15 @@ export type Database = {
       current_user_rol: {
         Args: never
         Returns: Database["public"]["Enums"]["user_rol"]
+      }
+      get_next_survey_questions: {
+        Args: { p_comedor_id: string }
+        Returns: {
+          id: string
+          orden: number
+          texto: string
+          tipo: Database["public"]["Enums"]["pregunta_tipo"]
+        }[]
       }
       is_admin: { Args: never; Returns: boolean }
     }
