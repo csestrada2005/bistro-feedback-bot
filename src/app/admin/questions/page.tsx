@@ -464,11 +464,8 @@ export default function QuestionsPage() {
                     <SortableRow
                       key={p.id}
                       pregunta={p}
-                      comedorNombre={
-                        p.comedor_id
-                          ? comedores.find((c) => c.id === p.comedor_id)?.nombre ?? "—"
-                          : null
-                      }
+                      asignados={assignments[p.id]?.length ?? 0}
+                      totalComedores={comedores.length}
                       onToggle={(v) => toggleActiva(p, v)}
                       onEdit={() => openEdit(p)}
                       onDelete={() => setConfirmDelete(p)}
@@ -712,13 +709,15 @@ export default function QuestionsPage() {
 
 function SortableRow({
   pregunta,
-  comedorNombre,
+  asignados,
+  totalComedores,
   onToggle,
   onEdit,
   onDelete,
 }: {
   pregunta: Pregunta;
-  comedorNombre: string | null;
+  asignados: number;
+  totalComedores: number;
   onToggle: (v: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -751,7 +750,11 @@ function SortableRow({
         <Badge variant="secondary">{TIPO_LABEL[pregunta.tipo]}</Badge>
       </TableCell>
       <TableCell className="text-sm text-muted-foreground">
-        {comedorNombre ?? "Todos"}
+        {asignados === 0
+          ? "Sin asignar"
+          : asignados === totalComedores
+          ? "Todos"
+          : `${asignados} de ${totalComedores}`}
       </TableCell>
       <TableCell>
         <Switch checked={pregunta.activa} onCheckedChange={onToggle} />
