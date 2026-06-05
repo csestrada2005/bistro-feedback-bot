@@ -7,12 +7,12 @@ import {
   FileText,
   Store,
   LogOut,
-  UtensilsCrossed,
   Menu,
   X,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/admin/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -45,8 +45,8 @@ function SidebarBody({
         )}
       >
         <div className={cn("flex items-center gap-2", collapsed && "justify-center")}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-            <UtensilsCrossed className="h-5 w-5" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-border">
+            <BrandLogo className="h-8 w-8" />
           </div>
           {!collapsed && (
             <div className="leading-tight">

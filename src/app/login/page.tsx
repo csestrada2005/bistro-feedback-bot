@@ -105,9 +105,11 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
+          <img
+            src={(await import("@/assets/main-catering-logo.jpg.asset.json")).url}
+            alt="Main Catering"
+            className="h-12 w-12 rounded-lg object-contain"
+          />
           <div>
             <h1 className="text-xl font-bold text-foreground">Main Catering</h1>
             <p className="text-sm text-muted-foreground">Panel administrador</p>
