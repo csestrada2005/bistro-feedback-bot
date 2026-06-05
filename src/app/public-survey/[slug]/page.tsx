@@ -264,9 +264,9 @@ export default function PublicSurveyPage() {
               type="button"
               onClick={handleLogoTap}
               aria-label="Main Catering"
-              className="mb-6 inline-flex items-center rounded-full bg-brand-soft px-5 py-2 text-lg font-semibold text-brand select-none"
+              className="mb-6 inline-flex items-center rounded-2xl bg-white p-2 select-none"
             >
-              Main Catering
+              <BrandLogoImg className="h-24 w-auto" />
             </button>
             <h1 className="text-5xl font-extrabold leading-tight text-foreground sm:text-6xl">
               {comedor.nombre}
