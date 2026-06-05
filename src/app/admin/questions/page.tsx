@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Tipo = "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3";
 
@@ -90,15 +91,15 @@ const ALL = "__all__";
 type FormState = {
   texto: string;
   tipo: Tipo;
-  comedor_id: string | null;
   activa: boolean;
+  comedorIds: string[];
 };
 
 const emptyForm: FormState = {
   texto: "",
   tipo: "escala_5",
-  comedor_id: null,
   activa: true,
+  comedorIds: [],
 };
 
 export default function QuestionsPage() {
@@ -106,6 +107,7 @@ export default function QuestionsPage() {
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [comedores, setComedores] = useState<Comedor[]>([]);
   const [filterComedor, setFilterComedor] = useState<string>(ALL);
+  const [assignments, setAssignments] = useState<Record<string, string[]>>({});
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Pregunta | null>(null);
@@ -123,14 +125,25 @@ export default function QuestionsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [{ data: pData, error: pErr }, { data: cData, error: cErr }] = await Promise.all([
+    const [
+      { data: pData, error: pErr },
+      { data: cData, error: cErr },
+      { data: aData, error: aErr },
+    ] = await Promise.all([
       supabase.from("preguntas").select("*").order("orden", { ascending: true }),
       supabase.from("comedores").select("id, nombre, slug").order("nombre"),
+      supabase.from("comedor_preguntas").select("pregunta_id, comedor_id"),
     ]);
     if (pErr) toast.error("Error cargando preguntas");
     if (cErr) toast.error("Error cargando comedores");
+    if (aErr) toast.error("Error cargando asignaciones");
     setPreguntas((pData ?? []) as Pregunta[]);
     setComedores((cData ?? []) as Comedor[]);
+    const map: Record<string, string[]> = {};
+    for (const row of (aData ?? []) as { pregunta_id: string; comedor_id: string }[]) {
+      (map[row.pregunta_id] ??= []).push(row.comedor_id);
+    }
+    setAssignments(map);
     setLoading(false);
   }, []);
 
@@ -140,10 +153,8 @@ export default function QuestionsPage() {
 
   const visibles = useMemo(() => {
     if (filterComedor === ALL) return preguntas;
-    return preguntas.filter(
-      (p) => p.comedor_id === null || p.comedor_id === filterComedor
-    );
-  }, [preguntas, filterComedor]);
+    return preguntas.filter((p) => assignments[p.id]?.includes(filterComedor));
+  }, [preguntas, filterComedor, assignments]);
 
   // Default comedor para sugerencias = filtro actual o primero
   useEffect(() => {
@@ -198,14 +209,42 @@ export default function QuestionsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      comedorIds:
+        filterComedor !== ALL ? [filterComedor] : comedores.map((c) => c.id),
+    });
     setModalOpen(true);
   };
 
   const openEdit = (p: Pregunta) => {
     setEditing(p);
-    setForm({ texto: p.texto, tipo: p.tipo, comedor_id: p.comedor_id, activa: p.activa });
+    setForm({
+      texto: p.texto,
+      tipo: p.tipo,
+      activa: p.activa,
+      comedorIds: assignments[p.id] ?? [],
+    });
     setModalOpen(true);
+  };
+
+  const syncAssignments = async (preguntaId: string, comedorIds: string[]) => {
+    const current = new Set(assignments[preguntaId] ?? []);
+    const next = new Set(comedorIds);
+    const toAdd = [...next].filter((c) => !current.has(c));
+    const toRemove = [...current].filter((c) => !next.has(c));
+    if (toAdd.length) {
+      await supabase
+        .from("comedor_preguntas")
+        .insert(toAdd.map((c) => ({ pregunta_id: preguntaId, comedor_id: c })));
+    }
+    if (toRemove.length) {
+      await supabase
+        .from("comedor_preguntas")
+        .delete()
+        .eq("pregunta_id", preguntaId)
+        .in("comedor_id", toRemove);
+    }
   };
 
   const handleSave = async () => {
@@ -220,30 +259,40 @@ export default function QuestionsPage() {
         .update({
           texto: form.texto.trim(),
           tipo: form.tipo,
-          comedor_id: form.comedor_id,
           activa: form.activa,
         })
         .eq("id", editing.id);
-      setSaving(false);
       if (error) {
+        setSaving(false);
         toast.error("Error al guardar");
         return;
       }
+      await syncAssignments(editing.id, form.comedorIds);
+      setSaving(false);
       toast.success("Pregunta actualizada");
     } else {
       const maxOrden = preguntas.reduce((m, p) => Math.max(m, p.orden), 0);
-      const { error } = await supabase.from("preguntas").insert({
-        texto: form.texto.trim(),
-        tipo: form.tipo,
-        comedor_id: form.comedor_id,
-        activa: form.activa,
-        orden: maxOrden + 1,
-      });
-      setSaving(false);
+      const { data: inserted, error } = await supabase
+        .from("preguntas")
+        .insert({
+          texto: form.texto.trim(),
+          tipo: form.tipo,
+          activa: form.activa,
+          orden: maxOrden + 1,
+        })
+        .select("id")
+        .single();
       if (error) {
+        setSaving(false);
         toast.error("Error al crear");
         return;
       }
+      if (inserted && form.comedorIds.length) {
+        await supabase
+          .from("comedor_preguntas")
+          .insert(form.comedorIds.map((c) => ({ pregunta_id: inserted.id, comedor_id: c })));
+      }
+      setSaving(false);
       toast.success("Pregunta creada");
     }
     setModalOpen(false);
@@ -320,16 +369,24 @@ export default function QuestionsPage() {
     idx: number
   ) => {
     const maxOrden = preguntas.reduce((m, p) => Math.max(m, p.orden), 0);
-    const { error } = await supabase.from("preguntas").insert({
-      texto: s.texto,
-      tipo: s.tipo,
-      comedor_id: aiComedor || null,
-      activa: true,
-      orden: maxOrden + 1,
-    });
+    const { data: inserted, error } = await supabase
+      .from("preguntas")
+      .insert({
+        texto: s.texto,
+        tipo: s.tipo,
+        activa: true,
+        orden: maxOrden + 1,
+      })
+      .select("id")
+      .single();
     if (error) {
       toast.error("No se pudo agregar");
       return;
+    }
+    if (inserted && aiComedor) {
+      await supabase
+        .from("comedor_preguntas")
+        .insert({ pregunta_id: inserted.id, comedor_id: aiComedor });
     }
     toast.success("Pregunta agregada");
     setAiSugerencias((prev) => prev.filter((_, i) => i !== idx));
