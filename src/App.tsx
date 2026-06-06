@@ -60,7 +60,7 @@ const App = () => (
 
             <Route
               element={
-                <RequireAuth allow={["admin", "operador"]}>
+                <RequireAuth allow={["admin"]}>
                   <AdminLayout />
                 </RequireAuth>
               }
@@ -71,14 +71,7 @@ const App = () => (
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/reports/:id/edit" element={<ReportEditPage />} />
               <Route path="/admin/comedores" element={<ComedoresPage />} />
-              <Route
-                path="/admin/roles"
-                element={
-                  <RequireAuth allow={["admin"]}>
-                    <RolesPage />
-                  </RequireAuth>
-                }
-              />
+              <Route path="/admin/roles" element={<RolesPage />} />
             </Route>
 
             <Route
