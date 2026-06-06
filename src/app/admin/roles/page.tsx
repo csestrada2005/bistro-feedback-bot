@@ -243,7 +243,7 @@ export default function RolesPage() {
                         onValueChange={(v) =>
                           updateRow(u, {
                             role: v as Rol,
-                            comedor_id: v === "admin" ? null : u.comedor_id,
+                            comedor_ids: v === "admin" ? [] : u.comedor_ids,
                           })
                         }
                       >
@@ -262,21 +262,11 @@ export default function RolesPage() {
                           <Shield className="h-3.5 w-3.5" /> Todos
                         </span>
                       ) : (
-                        <Select
-                          value={u.comedor_id ?? ""}
-                          onValueChange={(v) => updateRow(u, { comedor_id: v })}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Selecciona comedor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {comedores.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <ComedorMultiSelect
+                          selected={u.comedor_ids}
+                          comedores={comedores}
+                          onChange={(ids) => updateRow(u, { comedor_ids: ids })}
+                        />
                       )}
                     </TableCell>
                     <TableCell className="text-right">
