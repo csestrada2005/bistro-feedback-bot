@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const RoleEnum = z.enum(["admin", "operador", "cliente"]);
+const RoleEnum = z.enum(["admin", "cliente"]);
 
 const ListSchema = z.object({ action: z.literal("list") });
 const InviteSchema = z.object({
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       id: created.user.id,
       nombre: action.nombre ?? action.email.split("@")[0],
       rol: action.role,
-      comedor_id: action.role === "cliente" || action.role === "operador" ? action.comedor_id ?? null : null,
+      comedor_id: action.role === "cliente" ? action.comedor_id ?? null : null,
     });
     if (roleErr) {
       await admin.auth.admin.deleteUser(created.user.id);
