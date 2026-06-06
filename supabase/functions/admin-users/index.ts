@@ -16,14 +16,14 @@ const InviteSchema = z.object({
   role: RoleEnum,
   password: z.string().min(8).max(72),
   nombre: z.string().trim().min(1).max(120).optional(),
-  comedor_id: z.string().uuid().nullable().optional(),
+  comedor_ids: z.array(z.string().uuid()).optional(),
 });
 const RemoveSchema = z.object({ action: z.literal("remove"), user_id: z.string().uuid() });
 const UpdateSchema = z.object({
   action: z.literal("update"),
   user_id: z.string().uuid(),
   role: RoleEnum.optional(),
-  comedor_id: z.string().uuid().nullable().optional(),
+  comedor_ids: z.array(z.string().uuid()).optional(),
   password: z.string().min(8).max(72).optional(),
   nombre: z.string().trim().min(1).max(120).optional(),
 });
@@ -82,7 +82,14 @@ Deno.serve(async (req) => {
       .select("id, nombre, rol, comedor_id, created_at")
       .order("created_at", { ascending: false });
     if (rErr) return json(500, { error: rErr.message });
-    const users: { user_id: string; email: string; nombre: string; rol: string; comedor_id: string | null; created_at: string }[] = [];
+    const { data: assignments } = await admin
+      .from("usuario_comedores")
+      .select("usuario_id, comedor_id");
+    const map: Record<string, string[]> = {};
+    for (const a of assignments ?? []) {
+      (map[a.usuario_id] ??= []).push(a.comedor_id);
+    }
+    const users: { user_id: string; email: string; nombre: string; rol: string; comedor_ids: string[]; created_at: string }[] = [];
     for (const r of rows ?? []) {
       const { data: ur } = await admin.auth.admin.getUserById(r.id);
       users.push({
@@ -90,7 +97,7 @@ Deno.serve(async (req) => {
         email: ur?.user?.email ?? "—",
         nombre: r.nombre ?? "",
         rol: r.rol,
-        comedor_id: r.comedor_id,
+        comedor_ids: map[r.id] ?? [],
         created_at: r.created_at,
       });
     }
@@ -98,8 +105,9 @@ Deno.serve(async (req) => {
   }
 
   if (action.action === "invite") {
-    if (action.role === "cliente" && !action.comedor_id) {
-      return json(400, { error: "Los clientes deben tener un comedor asignado" });
+    const comedorIds = action.comedor_ids ?? [];
+    if (action.role === "cliente" && comedorIds.length === 0) {
+      return json(400, { error: "Asigna al menos un comedor al cliente" });
     }
     const { data: created, error: cErr } = await admin.auth.admin.createUser({
       email: action.email,
@@ -111,11 +119,16 @@ Deno.serve(async (req) => {
       id: created.user.id,
       nombre: action.nombre ?? action.email.split("@")[0],
       rol: action.role,
-      comedor_id: action.role === "cliente" ? action.comedor_id ?? null : null,
+      comedor_id: action.role === "cliente" ? comedorIds[0] ?? null : null,
     });
     if (roleErr) {
       await admin.auth.admin.deleteUser(created.user.id);
       return json(400, { error: roleErr.message });
+    }
+    if (action.role === "cliente" && comedorIds.length) {
+      await admin.from("usuario_comedores").insert(
+        comedorIds.map((c) => ({ usuario_id: created.user!.id, comedor_id: c })),
+      );
     }
     return json(200, { ok: true, user_id: created.user.id });
   }
@@ -126,11 +139,26 @@ Deno.serve(async (req) => {
     }
     const patch: Record<string, unknown> = {};
     if (action.role !== undefined) patch.rol = action.role;
-    if (action.comedor_id !== undefined) patch.comedor_id = action.comedor_id;
     if (action.nombre !== undefined) patch.nombre = action.nombre;
+    // Keep legacy single comedor_id in sync with first assignment when provided
+    if (action.comedor_ids !== undefined) {
+      patch.comedor_id = action.role === "admin" ? null : action.comedor_ids[0] ?? null;
+    } else if (action.role === "admin") {
+      patch.comedor_id = null;
+    }
     if (Object.keys(patch).length) {
       const { error: uErr } = await admin.from("usuarios").update(patch).eq("id", action.user_id);
       if (uErr) return json(400, { error: uErr.message });
+    }
+    if (action.comedor_ids !== undefined) {
+      await admin.from("usuario_comedores").delete().eq("usuario_id", action.user_id);
+      if (action.role !== "admin" && action.comedor_ids.length) {
+        await admin.from("usuario_comedores").insert(
+          action.comedor_ids.map((c) => ({ usuario_id: action.user_id, comedor_id: c })),
+        );
+      }
+    } else if (action.role === "admin") {
+      await admin.from("usuario_comedores").delete().eq("usuario_id", action.user_id);
     }
     if (action.password) {
       const { error: pErr } = await admin.auth.admin.updateUserById(action.user_id, {
