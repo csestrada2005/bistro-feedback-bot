@@ -300,7 +300,6 @@ export default function RolesPage() {
         </p>
         <ul className="ml-5 list-disc space-y-1">
           <li><b>Administrador</b>: acceso total al panel admin.</li>
-          <li><b>Operador</b>: ve datos solo de su comedor asignado.</li>
           <li><b>Cliente</b>: entra al panel de cliente y solo ve los reportes ya publicados.</li>
         </ul>
       </div>
