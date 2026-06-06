@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Shield, Store, Trash2, UserCog } from "lucide-react";
+import { Loader2, Plus, Shield, Store, Trash2, UserCog, ChevronsUpDown, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -49,7 +51,7 @@ type UsuarioRow = {
   email: string;
   nombre: string;
   rol: Rol;
-  comedor_id: string | null;
+  comedor_ids: string[];
   created_at: string;
 };
 
@@ -70,7 +72,7 @@ type FormState = {
   password: string;
   nombre: string;
   rol: Rol;
-  comedor_id: string | null;
+  comedor_ids: string[];
 };
 
 const emptyForm: FormState = {
@@ -78,7 +80,7 @@ const emptyForm: FormState = {
   password: "",
   nombre: "",
   rol: "cliente",
-  comedor_id: null,
+  comedor_ids: [],
 };
 
 export default function RolesPage() {
@@ -110,13 +112,13 @@ export default function RolesPage() {
     void load();
   }, [load]);
 
-  const comedorNombre = useMemo(() => {
-    const map = new Map(comedores.map((c) => [c.id, c.nombre]));
-    return (id: string | null) => (id ? map.get(id) ?? "—" : "—");
-  }, [comedores]);
+  const comedorById = useMemo(
+    () => new Map(comedores.map((c) => [c.id, c.nombre])),
+    [comedores],
+  );
 
   const openCreate = () => {
-    setForm({ ...emptyForm, comedor_id: comedores[0]?.id ?? null });
+    setForm({ ...emptyForm, comedor_ids: [] });
     setModalOpen(true);
   };
 
@@ -125,8 +127,8 @@ export default function RolesPage() {
       toast.error("Email válido y contraseña de 8+ caracteres requeridos");
       return;
     }
-    if (form.rol === "cliente" && !form.comedor_id) {
-      toast.error("Selecciona un comedor para el cliente");
+    if (form.rol === "cliente" && form.comedor_ids.length === 0) {
+      toast.error("Asigna al menos un comedor al cliente");
       return;
     }
     setSaving(true);
@@ -137,7 +139,7 @@ export default function RolesPage() {
         password: form.password,
         nombre: form.nombre.trim() || form.email.split("@")[0],
         role: form.rol,
-        comedor_id: form.rol === "admin" ? null : form.comedor_id,
+        comedor_ids: form.rol === "admin" ? [] : form.comedor_ids,
       },
     });
     setSaving(false);
@@ -151,7 +153,10 @@ export default function RolesPage() {
     void load();
   };
 
-  const updateRow = async (u: UsuarioRow, patch: { role?: Rol; comedor_id?: string | null }) => {
+  const updateRow = async (
+    u: UsuarioRow,
+    patch: { role?: Rol; comedor_ids?: string[] },
+  ) => {
     const { data, error } = await supabase.functions.invoke("admin-users", {
       body: { action: "update", user_id: u.user_id, ...patch },
     });
@@ -238,7 +243,7 @@ export default function RolesPage() {
                         onValueChange={(v) =>
                           updateRow(u, {
                             role: v as Rol,
-                            comedor_id: v === "admin" ? null : u.comedor_id,
+                            comedor_ids: v === "admin" ? [] : u.comedor_ids,
                           })
                         }
                       >
@@ -257,21 +262,11 @@ export default function RolesPage() {
                           <Shield className="h-3.5 w-3.5" /> Todos
                         </span>
                       ) : (
-                        <Select
-                          value={u.comedor_id ?? ""}
-                          onValueChange={(v) => updateRow(u, { comedor_id: v })}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Selecciona comedor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {comedores.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <ComedorMultiSelect
+                          selected={u.comedor_ids}
+                          comedores={comedores}
+                          onChange={(ids) => updateRow(u, { comedor_ids: ids })}
+                        />
                       )}
                     </TableCell>
                     <TableCell className="text-right">
@@ -361,23 +356,13 @@ export default function RolesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Comedor</Label>
-                <Select
-                  value={form.comedor_id ?? ""}
-                  onValueChange={(v) => setForm((f) => ({ ...f, comedor_id: v }))}
+                <Label>Comedores</Label>
+                <ComedorMultiSelect
+                  selected={form.comedor_ids}
+                  comedores={comedores}
                   disabled={form.rol === "admin"}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {comedores.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(ids) => setForm((f) => ({ ...f, comedor_ids: ids }))}
+                />
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -385,7 +370,7 @@ export default function RolesPage() {
                 {ROL_LABEL[form.rol]}
               </span>{" "}
               {form.rol === "cliente" &&
-                "verá solo los reportes publicados del comedor seleccionado."}
+                "verá solo los reportes publicados de los comedores asignados (sin límite)."}
               {form.rol === "admin" && "tendrá acceso total al panel admin."}
             </p>
           </div>
@@ -421,5 +406,89 @@ export default function RolesPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function ComedorMultiSelect({
+  selected,
+  comedores,
+  onChange,
+  disabled,
+}: {
+  selected: string[];
+  comedores: Comedor[];
+  onChange: (ids: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const map = new Map(comedores.map((c) => [c.id, c.nombre]));
+  const label =
+    selected.length === 0
+      ? "Selecciona comedores"
+      : selected.length === comedores.length
+      ? `Todos (${comedores.length})`
+      : selected.length === 1
+      ? map.get(selected[0]) ?? "1 comedor"
+      : `${selected.length} comedores`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          disabled={disabled}
+          className="h-9 w-full justify-between font-normal"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0" align="start">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs">
+          <button
+            type="button"
+            className="text-brand hover:underline"
+            onClick={() => onChange(comedores.map((c) => c.id))}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            className="text-muted-foreground hover:underline"
+            onClick={() => onChange([])}
+          >
+            Ninguno
+          </button>
+        </div>
+        <div className="max-h-64 space-y-1 overflow-y-auto p-2">
+          {comedores.length === 0 && (
+            <p className="px-2 py-1 text-xs text-muted-foreground">No hay comedores.</p>
+          )}
+          {comedores.map((c) => {
+            const checked = selected.includes(c.id);
+            return (
+              <label
+                key={c.id}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+              >
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(v) =>
+                    onChange(
+                      v
+                        ? [...selected, c.id]
+                        : selected.filter((id) => id !== c.id),
+                    )
+                  }
+                />
+                <span className="flex-1 truncate">{c.nombre}</span>
+                {checked && <Check className="h-3.5 w-3.5 text-brand" />}
+              </label>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -323,6 +323,39 @@ export type Database = {
           },
         ]
       }
+      usuario_comedores: {
+        Row: {
+          comedor_id: string
+          created_at: string
+          usuario_id: string
+        }
+        Insert: {
+          comedor_id: string
+          created_at?: string
+          usuario_id: string
+        }
+        Update: {
+          comedor_id?: string
+          created_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usuario_comedores_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuario_comedores_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usuarios: {
         Row: {
           comedor_id: string | null
@@ -375,6 +408,10 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      user_has_comedor: {
+        Args: { _comedor_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       pregunta_tipo: "escala_5" | "si_no" | "texto_abierto" | "texto_multiple_3"
