@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Shield, Store, Trash2, UserCog } from "lucide-react";
+import { Loader2, Plus, Shield, Store, Trash2, UserCog, ChevronsUpDown, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -49,7 +51,7 @@ type UsuarioRow = {
   email: string;
   nombre: string;
   rol: Rol;
-  comedor_id: string | null;
+  comedor_ids: string[];
   created_at: string;
 };
 
@@ -70,7 +72,7 @@ type FormState = {
   password: string;
   nombre: string;
   rol: Rol;
-  comedor_id: string | null;
+  comedor_ids: string[];
 };
 
 const emptyForm: FormState = {
@@ -78,7 +80,7 @@ const emptyForm: FormState = {
   password: "",
   nombre: "",
   rol: "cliente",
-  comedor_id: null,
+  comedor_ids: [],
 };
 
 export default function RolesPage() {
@@ -110,13 +112,13 @@ export default function RolesPage() {
     void load();
   }, [load]);
 
-  const comedorNombre = useMemo(() => {
-    const map = new Map(comedores.map((c) => [c.id, c.nombre]));
-    return (id: string | null) => (id ? map.get(id) ?? "—" : "—");
-  }, [comedores]);
+  const comedorById = useMemo(
+    () => new Map(comedores.map((c) => [c.id, c.nombre])),
+    [comedores],
+  );
 
   const openCreate = () => {
-    setForm({ ...emptyForm, comedor_id: comedores[0]?.id ?? null });
+    setForm({ ...emptyForm, comedor_ids: [] });
     setModalOpen(true);
   };
 
@@ -125,8 +127,8 @@ export default function RolesPage() {
       toast.error("Email válido y contraseña de 8+ caracteres requeridos");
       return;
     }
-    if (form.rol === "cliente" && !form.comedor_id) {
-      toast.error("Selecciona un comedor para el cliente");
+    if (form.rol === "cliente" && form.comedor_ids.length === 0) {
+      toast.error("Asigna al menos un comedor al cliente");
       return;
     }
     setSaving(true);
@@ -137,7 +139,7 @@ export default function RolesPage() {
         password: form.password,
         nombre: form.nombre.trim() || form.email.split("@")[0],
         role: form.rol,
-        comedor_id: form.rol === "admin" ? null : form.comedor_id,
+        comedor_ids: form.rol === "admin" ? [] : form.comedor_ids,
       },
     });
     setSaving(false);
@@ -151,7 +153,10 @@ export default function RolesPage() {
     void load();
   };
 
-  const updateRow = async (u: UsuarioRow, patch: { role?: Rol; comedor_id?: string | null }) => {
+  const updateRow = async (
+    u: UsuarioRow,
+    patch: { role?: Rol; comedor_ids?: string[] },
+  ) => {
     const { data, error } = await supabase.functions.invoke("admin-users", {
       body: { action: "update", user_id: u.user_id, ...patch },
     });
