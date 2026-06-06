@@ -408,3 +408,87 @@ export default function RolesPage() {
     </div>
   );
 }
+
+function ComedorMultiSelect({
+  selected,
+  comedores,
+  onChange,
+  disabled,
+}: {
+  selected: string[];
+  comedores: Comedor[];
+  onChange: (ids: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const map = new Map(comedores.map((c) => [c.id, c.nombre]));
+  const label =
+    selected.length === 0
+      ? "Selecciona comedores"
+      : selected.length === comedores.length
+      ? `Todos (${comedores.length})`
+      : selected.length === 1
+      ? map.get(selected[0]) ?? "1 comedor"
+      : `${selected.length} comedores`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          disabled={disabled}
+          className="h-9 w-full justify-between font-normal"
+        >
+          <span className="truncate">{label}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0" align="start">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs">
+          <button
+            type="button"
+            className="text-brand hover:underline"
+            onClick={() => onChange(comedores.map((c) => c.id))}
+          >
+            Todos
+          </button>
+          <button
+            type="button"
+            className="text-muted-foreground hover:underline"
+            onClick={() => onChange([])}
+          >
+            Ninguno
+          </button>
+        </div>
+        <div className="max-h-64 space-y-1 overflow-y-auto p-2">
+          {comedores.length === 0 && (
+            <p className="px-2 py-1 text-xs text-muted-foreground">No hay comedores.</p>
+          )}
+          {comedores.map((c) => {
+            const checked = selected.includes(c.id);
+            return (
+              <label
+                key={c.id}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+              >
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={(v) =>
+                    onChange(
+                      v
+                        ? [...selected, c.id]
+                        : selected.filter((id) => id !== c.id),
+                    )
+                  }
+                />
+                <span className="flex-1 truncate">{c.nombre}</span>
+                {checked && <Check className="h-3.5 w-3.5 text-brand" />}
+              </label>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
