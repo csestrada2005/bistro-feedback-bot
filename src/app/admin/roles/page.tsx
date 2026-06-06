@@ -370,7 +370,7 @@ export default function RolesPage() {
                 {ROL_LABEL[form.rol]}
               </span>{" "}
               {form.rol === "cliente" &&
-                "verá solo los reportes publicados del comedor seleccionado."}
+                "verá solo los reportes publicados de los comedores asignados (sin límite)."}
               {form.rol === "admin" && "tendrá acceso total al panel admin."}
             </p>
           </div>
