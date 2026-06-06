@@ -356,23 +356,13 @@ export default function RolesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Comedor</Label>
-                <Select
-                  value={form.comedor_id ?? ""}
-                  onValueChange={(v) => setForm((f) => ({ ...f, comedor_id: v }))}
+                <Label>Comedores</Label>
+                <ComedorMultiSelect
+                  selected={form.comedor_ids}
+                  comedores={comedores}
                   disabled={form.rol === "admin"}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {comedores.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(ids) => setForm((f) => ({ ...f, comedor_ids: ids }))}
+                />
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
