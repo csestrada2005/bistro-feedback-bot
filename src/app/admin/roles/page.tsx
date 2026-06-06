@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/admin/auth/AuthProvider";
 
-type Rol = "admin" | "operador" | "cliente";
+type Rol = "admin" | "cliente";
 
 type UsuarioRow = {
   user_id: string;
@@ -57,13 +57,11 @@ type Comedor = { id: string; nombre: string };
 
 const ROL_LABEL: Record<Rol, string> = {
   admin: "Administrador",
-  operador: "Operador",
   cliente: "Cliente",
 };
 
 const ROL_BADGE: Record<Rol, string> = {
   admin: "bg-brand/10 text-brand",
-  operador: "bg-amber-100 text-amber-800",
   cliente: "bg-emerald-100 text-emerald-800",
 };
 
@@ -249,7 +247,6 @@ export default function RolesPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Administrador</SelectItem>
-                          <SelectItem value="operador">Operador</SelectItem>
                           <SelectItem value="cliente">Cliente</SelectItem>
                         </SelectContent>
                       </Select>
@@ -360,7 +357,6 @@ export default function RolesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cliente">Cliente</SelectItem>
-                    <SelectItem value="operador">Operador</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
@@ -390,9 +386,7 @@ export default function RolesPage() {
                 {ROL_LABEL[form.rol]}
               </span>{" "}
               {form.rol === "cliente" &&
-                "verá solo reportes publicados del comedor seleccionado."}
-              {form.rol === "operador" &&
-                "verá respuestas y reportes únicamente de su comedor."}
+                "verá solo los reportes publicados del comedor seleccionado."}
               {form.rol === "admin" && "tendrá acceso total al panel admin."}
             </p>
           </div>
