@@ -617,7 +617,7 @@ export function ReportTemplate({ data }: { data: ReportData }) {
   return (
     <Document
       title={`Reporte ${data.comedorNombre}`}
-      author="Main Catering · NEBU Studio"
+      author="Main Catering"
     >
       <CoverPage data={data} />
       <ResumenPage data={data} />
