@@ -1,9 +1,15 @@
 import { ShieldX } from "lucide-react";
+import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/admin/auth/AuthProvider";
 
 export default function NoAccess() {
-  const { signOut, user } = useAuth();
+  const { loading, profile, signOut, user } = useAuth();
+
+  if (!loading && profile) {
+    return <Navigate to={profile.rol === "cliente" ? "/cliente" : "/admin/dashboard"} replace />;
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[hsl(210_40%_98%)] px-4">
       <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
