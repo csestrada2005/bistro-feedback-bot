@@ -57,9 +57,10 @@ Deno.serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
-    const { data: claimsRes, error: claimsErr } = await userClient.auth.getClaims(token);
-    const userId = claimsRes?.claims?.sub ?? null;
-    if (claimsErr || !userId) {
+    const { data: userData, error: userErr } = await userClient.auth.getUser(token);
+    const userId = userData.user?.id ?? null;
+    if (userErr || !userId) {
+      console.error("suggest-questions auth getUser failed", userErr);
       return new Response(JSON.stringify({ error: "Sesión inválida" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -72,6 +73,7 @@ Deno.serve(async (req) => {
       .eq("id", userId)
       .maybeSingle();
     if (callerRow?.rol !== "admin") {
+      console.error("suggest-questions forbidden: rol no admin", { userId, rol: callerRow?.rol });
       return new Response(JSON.stringify({ error: "Solo administradores" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

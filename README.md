@@ -1,3 +1,12 @@
-# Welcome to your Lovable project
+# Main Catering — Sistema de Encuestas
 
-TODO: Document your project here
+Panel de encuestas de satisfacción para los comedores corporativos de Main Catering.
+Stack: Vite + React + Supabase/Lovable Cloud, con edge functions (Deno) para auth,
+moderación y análisis con IA.
+
+## Correr en local
+
+```bash
+npm install
+npm run dev
+```

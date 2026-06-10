@@ -54,16 +54,22 @@ Deno.serve(async (req) => {
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
-  const { data: claimsRes, error: claimsErr } = await userClient.auth.getClaims(token);
-  const callerId = claimsRes?.claims?.sub ?? null;
-  if (claimsErr || !callerId) return json(401, { error: "Invalid token" });
+  const { data, error: userErr } = await userClient.auth.getUser(token);
+  const callerId = data.user?.id ?? null;
+  if (userErr || !callerId) {
+    console.error("admin-users auth getUser failed", userErr);
+    return json(401, { error: "Invalid token" });
+  }
 
   const { data: caller } = await admin
     .from("usuarios")
     .select("rol")
     .eq("id", callerId)
     .maybeSingle();
-  if (caller?.rol !== "admin") return json(403, { error: "Solo administradores" });
+  if (caller?.rol !== "admin") {
+    console.error("admin-users forbidden: rol no admin", { callerId, rol: caller?.rol });
+    return json(403, { error: "Solo administradores" });
+  }
 
   let body: unknown;
   try {
@@ -90,10 +96,16 @@ Deno.serve(async (req) => {
     }
     const users: { user_id: string; email: string; nombre: string; rol: string; comedor_ids: string[]; created_at: string }[] = [];
     for (const r of rows ?? []) {
-      const { data: ur } = await admin.auth.admin.getUserById(r.id);
+      let email = "—";
+      try {
+        const { data: ur } = await admin.auth.admin.getUserById(r.id);
+        email = ur?.user?.email ?? "—";
+      } catch (e) {
+        console.error("getUserById falló para usuario huérfano", r.id, e);
+      }
       users.push({
         user_id: r.id,
-        email: ur?.user?.email ?? "—",
+        email,
         nombre: r.nombre ?? "",
         rol: r.rol,
         comedor_ids: map[r.id] ?? [],
