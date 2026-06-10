@@ -65,43 +65,73 @@ export default function PublicSurveyPage() {
   useEffect(() => {
     void (async () => {
       setLoading(true);
-      const { data: com } = await supabase
-        .from("comedores")
-        .select("id, slug, nombre")
-        .eq("slug", slug)
-        .eq("activo", true)
-        .maybeSingle();
-      if (!com) {
+      let comId: string | null = null;
+      try {
+        const { data: com, error: comErr } = await supabase
+          .from("comedores")
+          .select("id, slug, nombre")
+          .eq("slug", slug)
+          .eq("activo", true)
+          .maybeSingle();
+        if (comErr) console.error("comedor load error", comErr);
+        if (!com) return;
+        setComedor(com as Comedor);
+        comId = (com as Comedor).id;
+
+        const rpcAny = supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: unknown }>;
+
+        const [qsRes, pinRes] = await Promise.allSettled([
+          supabase.rpc("get_next_survey_questions", { p_comedor_id: com.id }),
+          rpcAny("comedor_has_kiosk_pin", { p_comedor_id: com.id }),
+        ]);
+
+        if (qsRes.status === "fulfilled") {
+          const { data: qs, error: qErr } = qsRes.value;
+          if (qErr) {
+            console.error("rotation error", qErr);
+            toast.error("No pudimos cargar las preguntas");
+          }
+          setPreguntas((qs ?? []) as Pregunta[]);
+        } else {
+          console.error("rotation rejected", qsRes.reason);
+          toast.error("No pudimos cargar las preguntas");
+          setPreguntas([]);
+        }
+
+        if (pinRes.status === "fulfilled") {
+          const { data, error } = pinRes.value as { data: boolean | null; error: unknown };
+          if (error) console.error("pin check error", error);
+          // Solo bloquear cuando explícitamente devuelve false.
+          setPinRequired(data === false);
+        } else {
+          console.error("pin check rejected", pinRes.reason);
+          setPinRequired(false);
+        }
+      } catch (err) {
+        console.error("survey load failed", err);
+        toast.error("No pudimos abrir la encuesta");
+      } finally {
         setLoading(false);
-        return;
       }
-      setComedor(com as Comedor);
-      const rpcAny = supabase.rpc as unknown as (
-        fn: string,
-        args: Record<string, unknown>,
-      ) => Promise<{ data: unknown; error: unknown }>;
-      const [{ data: qs, error: qErr }, pinRes] = await Promise.all([
-        supabase.rpc("get_next_survey_questions", { p_comedor_id: com.id }),
-        rpcAny("comedor_has_kiosk_pin", { p_comedor_id: com.id }),
-      ]);
-      if (qErr) console.error("rotation error", qErr);
-      setPreguntas((qs ?? []) as Pregunta[]);
-      setPinRequired(!pinRes.data);
-      setLoading(false);
       // RUM: cargar el módulo en idle para no competir con el primer render.
-      const comId = (com as Comedor).id;
-      const sendRum = () =>
-        import("@/lib/rum").then(({ trackSurveyRum }) =>
-          trackSurveyRum({ slug, comedorId: comId })
-        );
-      type WinIdle = Window & {
-        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-      };
-      const w = window as WinIdle;
-      if (typeof w.requestIdleCallback === "function") {
-        w.requestIdleCallback(sendRum, { timeout: 2000 });
-      } else {
-        setTimeout(sendRum, 1200);
+      if (comId) {
+        const finalComId = comId;
+        const sendRum = () =>
+          import("@/lib/rum").then(({ trackSurveyRum }) =>
+            trackSurveyRum({ slug, comedorId: finalComId })
+          );
+        type WinIdle = Window & {
+          requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        };
+        const w = window as WinIdle;
+        if (typeof w.requestIdleCallback === "function") {
+          w.requestIdleCallback(sendRum, { timeout: 2000 });
+        } else {
+          setTimeout(sendRum, 1200);
+        }
       }
     })();
   }, [slug]);
