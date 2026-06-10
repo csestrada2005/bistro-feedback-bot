@@ -42,7 +42,7 @@ export default function LoginPage() {
 
   if (!loading && session && profile) {
     const from = (location.state as { from?: string } | null)?.from;
-    const home = profile.rol === "cliente" ? "/cliente/reportes" : "/admin/dashboard";
+    const home = profile.rol === "cliente" ? "/cliente" : "/admin/dashboard";
     return <Navigate to={from ?? home} replace />;
   }
 
@@ -74,7 +74,7 @@ export default function LoginPage() {
         return;
       }
       toast.success("Sesión iniciada");
-      const home = row.rol === "cliente" ? "/cliente/reportes" : "/admin/dashboard";
+      const home = row.rol === "cliente" ? "/cliente" : "/admin/dashboard";
       navigate(home, { replace: true });
     } finally {
       setSubmitting(false);

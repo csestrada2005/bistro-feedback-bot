@@ -30,6 +30,8 @@ const RolesPage = lazy(() => import("@/app/admin/roles/page"));
 const ReportEditPage = lazy(() => import("@/app/admin/reports/[id]/edit/page"));
 const ClienteReportesPage = lazy(() => import("@/app/cliente/reportes/page"));
 const ClienteReporteDetailPage = lazy(() => import("@/app/cliente/reportes/[id]/page"));
+const ClienteHomePage = lazy(() => import("@/app/cliente/page"));
+const ClienteEncuestaPage = lazy(() => import("@/app/cliente/encuesta/page"));
 
 const RouteFallback = () => (
   <div className="flex min-h-screen items-center justify-center">
@@ -81,6 +83,8 @@ const App = () => (
                 </RequireAuth>
               }
             >
+              <Route path="/cliente" element={<ClienteHomePage />} />
+              <Route path="/cliente/encuesta" element={<ClienteEncuestaPage />} />
               <Route path="/cliente/reportes" element={<ClienteReportesPage />} />
               <Route path="/cliente/reportes/:id" element={<ClienteReporteDetailPage />} />
             </Route>
