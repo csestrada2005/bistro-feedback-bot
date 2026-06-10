@@ -480,14 +480,14 @@ export default function QuestionsPage() {
 
       {/* Modal crear/editar */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[520px] max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>{editing ? "Editar pregunta" : "Nueva pregunta"}</DialogTitle>
             <DialogDescription>
               Configura cómo aparecerá esta pregunta en la encuesta.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-2">
             <div className="space-y-2">
               <Label htmlFor="texto">Texto de la pregunta</Label>
               <Textarea
@@ -583,7 +583,7 @@ export default function QuestionsPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-border bg-card px-6 py-4">
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancelar
             </Button>
