@@ -8,17 +8,32 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `Eres el asistente IA del panel administrador de Main Catering, una plataforma de encuestas de satisfacción para comedores industriales en México.
+const SYSTEM_PROMPT = `Eres el asistente IA del panel admin de Main Catering (encuestas para comedores industriales en México). Hablas español y eres PROACTIVO.
 
-Tu rol: ayudar al admin a gestionar preguntas, comedores, reportes y usuarios mediante conversación natural en español.
+PRINCIPIO #1: NUNCA le pidas IDs (UUIDs) al usuario. El usuario habla por nombres. TÚ traduces nombres a IDs llamando a las tools de lectura (list_comedores, list_preguntas, listar_usuarios, listar_reportes). Usa coincidencia parcial case-insensitive (p.ej. "testing" → comedor cuyo nombre contenga "testing").
 
-REGLAS IMPORTANTES:
-- Antes de proponer cualquier mutación, asegúrate de tener IDs reales (usa las tools de lectura primero).
-- Para CUALQUIER acción que modifique datos (crear, editar, borrar, asignar, publicar, etc.), DEBES llamar la tool 'execute_mutation' — NUNCA inventes que ya lo hiciste. El sistema mostrará una tarjeta de aprobación al admin antes de aplicar.
-- En 'execute_mutation' incluye un 'summary' claro en español que describa exactamente lo que pasará si el admin aprueba (ej: "Apagar 3 preguntas en el comedor Planta Norte").
-- Cuando una mutación quede pendiente de aprobación, dile al usuario en lenguaje natural qué propusiste y que la tarjeta de aprobación está abajo. NO repitas la lista de IDs crudos.
-- Si el usuario hace una pregunta analítica, usa 'resumen_comedor' o 'top_problemas' y responde con bullets concisos.
-- Formato de salida: markdown ligero (bullets, negritas). Sin tablas gigantes.`;
+PRINCIPIO #2: ACTÚA, no preguntes. Si el usuario te da una instrucción razonable (aunque sea breve o coloquial como "hazlo", "sí", "adelante", "todas"), ejecútala con la interpretación más probable. Solo pide aclaración cuando haya AMBIGÜEDAD REAL (ej: dos comedores con nombre parecido). Aun en ese caso, ofrece la opción más probable y di "voy con X salvo que me digas lo contrario".
+
+PRINCIPIO #3: Para CUALQUIER cambio (crear/editar/borrar/asignar/publicar/encender/apagar) DEBES llamar a 'execute_mutation'. NUNCA digas que hiciste algo sin llamarla. El sistema mostrará tarjetas de aprobación al admin — tú no ejecutas, propones.
+
+PRINCIPIO #4: OPERACIONES MASIVAS — en un mismo turno puedes (y debes) emitir MÚLTIPLES llamadas a 'execute_mutation' en paralelo. Ej: "que todas las preguntas estén solo en el comedor Testing" → primero list_comedores + list_preguntas, luego emite una llamada 'asignar_pregunta_comedores' por cada pregunta con modo:"reemplazar" y comedor_ids:[id_testing]. El UI las apilará como tarjetas y el admin aprueba todas de una.
+
+En cada 'execute_mutation' incluye un 'summary' claro y específico en español (ej: "Asignar la pregunta '¿Qué tal la comida?' solo al comedor Testing").
+
+EJEMPLOS DE FLUJO CORRECTO:
+
+Usuario: "apaga la pregunta sobre la sopa"
+Tú: llamas list_preguntas, encuentras la que contiene "sopa", llamas execute_mutation kind:"toggle_pregunta" params:{id, activa:false} summary:"Apagar la pregunta '¿Te gustó la sopa?'". Respondes: "Propuse apagar la pregunta sobre la sopa. Aprueba abajo."
+
+Usuario: "que las preguntas estén solo en Testing"
+Tú: llamas list_comedores y list_preguntas en paralelo. Luego emites N llamadas 'asignar_pregunta_comedores' (una por pregunta) con modo:"reemplazar", comedor_ids:[testing_id]. Respondes: "Propuse reasignar las N preguntas para que vivan solo en el comedor Testing. Revisa y aprueba abajo."
+
+Usuario: "hazlo" (después de algo así)
+Tú: si ya tenías contexto, ACTÚA. No vuelvas a preguntar.
+
+Para preguntas analíticas usa 'resumen_comedor' o 'top_problemas' y responde con bullets concisos.
+
+Formato: markdown ligero (bullets, negritas). Sin tablas gigantes, sin volcar UUIDs al usuario.`;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -45,12 +60,13 @@ const TOOLS = [
     function: {
       name: "list_preguntas",
       description:
-        "Lista preguntas de la encuesta con sus comedores asignados. Filtra por comedor o estado.",
+        "Lista preguntas de la encuesta con sus comedores asignados. Filtra por comedor, estado, o texto parcial.",
       parameters: {
         type: "object",
         properties: {
           filtro_comedor_id: { type: "string", description: "UUID del comedor (opcional)" },
           activa: { type: "boolean", description: "Filtrar por estado activa/inactiva (opcional)" },
+          texto_contiene: { type: "string", description: "Substring case-insensitive del texto de la pregunta (opcional)" },
         },
       },
     },
@@ -59,10 +75,13 @@ const TOOLS = [
     type: "function" as const,
     function: {
       name: "list_comedores",
-      description: "Lista todos los comedores.",
+      description: "Lista comedores. Puedes filtrar por nombre parcial case-insensitive.",
       parameters: {
         type: "object",
-        properties: { activo: { type: "boolean" } },
+        properties: {
+          activo: { type: "boolean" },
+          nombre_contiene: { type: "string", description: "Substring case-insensitive del nombre (opcional)" },
+        },
       },
     },
   },
@@ -151,6 +170,9 @@ async function executeReadTool(
     case "list_preguntas": {
       let q = supabase.from("preguntas").select("id, texto, tipo, activa, orden").order("orden");
       if (typeof args.activa === "boolean") q = q.eq("activa", args.activa);
+      if (typeof args.texto_contiene === "string" && args.texto_contiene.trim()) {
+        q = q.ilike("texto", `%${args.texto_contiene.trim()}%`);
+      }
       const { data: preguntas } = await q;
       const { data: asignaciones } = await supabase
         .from("comedor_preguntas")
@@ -168,6 +190,9 @@ async function executeReadTool(
     case "list_comedores": {
       let q = supabase.from("comedores").select("id, nombre, slug, empresa_cliente, activo");
       if (typeof args.activo === "boolean") q = q.eq("activo", args.activo);
+      if (typeof args.nombre_contiene === "string" && args.nombre_contiene.trim()) {
+        q = q.ilike("nombre", `%${args.nombre_contiene.trim()}%`);
+      }
       const { data } = await q.order("nombre");
       return data ?? [];
     }
@@ -341,12 +366,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    let pending: {
+    const pendingList: Array<{
       tool_call_id: string;
       kind: string;
       params: Record<string, unknown>;
       summary: string;
-    } | null = null;
+    }> = [];
 
     for (const call of toolCalls) {
       const name = call.function?.name;
@@ -357,20 +382,20 @@ Deno.serve(async (req) => {
         args = {};
       }
       if (name === "execute_mutation") {
-        // No ejecutar. Marcar pendiente y devolver al cliente.
-        pending = {
+        const item = {
           tool_call_id: call.id,
           kind: String(args.kind ?? ""),
           params: (args.params ?? {}) as Record<string, unknown>,
           summary: String(args.summary ?? ""),
         };
+        pendingList.push(item);
         messages.push({
           role: "tool",
           tool_call_id: call.id,
           content: JSON.stringify({
             requires_approval: true,
-            summary: pending.summary,
-            kind: pending.kind,
+            summary: item.summary,
+            kind: item.kind,
           }),
         });
       } else {
@@ -383,7 +408,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (pending) {
+    if (pendingList.length > 0) {
       // Si el assistant message anterior no tiene contenido natural, pedir uno breve
       const lastAssistant = messages[messages.length - 2];
       const noNaturalText =
@@ -405,7 +430,7 @@ Deno.serve(async (req) => {
       }
       return json(200, {
         status: "pending_approval",
-        pending,
+        pending: pendingList,
         messages: messages.slice(1),
       });
     }

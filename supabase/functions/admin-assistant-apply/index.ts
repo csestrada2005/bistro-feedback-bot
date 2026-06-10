@@ -44,20 +44,56 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (rolRow?.rol !== "admin") return json(403, { error: "Solo administradores" });
 
-  let body: { kind?: string; params?: Record<string, unknown> };
+  let body: {
+    kind?: string;
+    params?: Record<string, unknown>;
+    pending?: Array<{ tool_call_id?: string; kind: string; params: Record<string, unknown> }>;
+  };
   try {
     body = await req.json();
   } catch {
     return json(400, { error: "JSON inválido" });
   }
+
+  // Batch
+  if (Array.isArray(body.pending) && body.pending.length > 0) {
+    const results: Array<{
+      tool_call_id?: string;
+      kind: string;
+      ok: boolean;
+      result?: unknown;
+      error?: string;
+    }> = [];
+    for (const item of body.pending) {
+      if (!MUTATION_KINDS.includes(item.kind as MutationKind)) {
+        results.push({ tool_call_id: item.tool_call_id, kind: item.kind, ok: false, error: "kind inválido" });
+        continue;
+      }
+      const r = await applyMutation(supabase, item.kind as MutationKind, item.params ?? {});
+      await supabase.from("assistant_actions").insert({
+        admin_id: userId,
+        tool: item.kind,
+        params: item.params ?? {},
+        result: r.ok ? r.result : null,
+        status: r.ok ? "success" : "error",
+        error_message: r.ok ? null : r.error,
+      });
+      results.push(
+        r.ok
+          ? { tool_call_id: item.tool_call_id, kind: item.kind, ok: true, result: r.result }
+          : { tool_call_id: item.tool_call_id, kind: item.kind, ok: false, error: r.error },
+      );
+    }
+    return json(200, { ok: true, results });
+  }
+
+  // Singular (compat)
   const kind = body.kind;
   if (!kind || !MUTATION_KINDS.includes(kind as MutationKind)) {
     return json(400, { error: `kind inválido: ${kind}` });
   }
   const params = body.params ?? {};
-
   const res = await applyMutation(supabase, kind as MutationKind, params);
-
   await supabase.from("assistant_actions").insert({
     admin_id: userId,
     tool: kind,
@@ -66,7 +102,6 @@ Deno.serve(async (req) => {
     status: res.ok ? "success" : "error",
     error_message: res.ok ? null : res.error,
   });
-
   if (!res.ok) return json(400, { error: res.error });
   return json(200, { ok: true, result: res.result });
 });
