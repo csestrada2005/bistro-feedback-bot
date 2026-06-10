@@ -33,9 +33,9 @@ Deno.serve(async (req) => {
   const userClient = createClient(supabaseUrl, supabaseAnon, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
-  const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
-  const userId = claims?.claims?.sub ?? null;
-  if (claimsErr || !userId) return json(401, { error: "Sesión inválida" });
+  const { data: userRes, error: userErr } = await userClient.auth.getUser(token);
+  const userId = userRes?.user?.id ?? null;
+  if (userErr || !userId) return json(401, { error: "Sesión inválida" });
 
   const { data: rolRow } = await supabase
     .from("usuarios")
