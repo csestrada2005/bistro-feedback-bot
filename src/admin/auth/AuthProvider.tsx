@@ -1,10 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AdminRol = "admin" | "operador" | "cliente";
 
-#Testing;
 export type AdminProfile = {
   id: string;
   nombre: string;
@@ -90,7 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
-  const refreshProfile = useCallback(async () => loadProfile(session?.user?.id), [loadProfile, session?.user?.id]);
+  const refreshProfile = useCallback(
+    async () => loadProfile(session?.user?.id),
+    [loadProfile, session?.user?.id]
+  );
 
   const value = useMemo<AuthState>(
     () => ({
@@ -102,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       refreshProfile,
     }),
-    [loading, session, profile, signIn, signOut, refreshProfile],
+    [loading, session, profile, signIn, signOut, refreshProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
