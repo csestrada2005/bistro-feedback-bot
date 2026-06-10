@@ -384,22 +384,24 @@ Deno.serve(async (req) => {
     }
 
     if (pending) {
-      // Pedir al modelo un mensaje final que explique al admin la propuesta
-      const followResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages,
-        }),
-      });
-      if (followResp.ok) {
-        const fd = await followResp.json();
-        const fmsg = fd?.choices?.[0]?.message;
-        if (fmsg) messages.push({ role: "assistant", content: fmsg.content ?? "" });
+      // Si el assistant message anterior no tiene contenido natural, pedir uno breve
+      const lastAssistant = messages[messages.length - 2];
+      const noNaturalText =
+        !lastAssistant?.content || (typeof lastAssistant.content === "string" && !lastAssistant.content.trim());
+      if (noNaturalText) {
+        const followResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ model: "google/gemini-2.5-flash", messages }),
+        });
+        if (followResp.ok) {
+          const fd = await followResp.json();
+          const fmsg = fd?.choices?.[0]?.message;
+          if (fmsg?.content) messages.push({ role: "assistant", content: fmsg.content });
+        }
       }
       return json(200, {
         status: "pending_approval",
