@@ -244,7 +244,50 @@ export default function PublicSurveyPage() {
   const currentQ = isQuestion ? preguntas[step - 1] : null;
 
   const handleBack = () => {
-    if (step > 0 && !done) setStep((s) => s - 1);
+    if (done) return;
+    if (step > 1) setStep((s) => s - 1);
+    else {
+      setExitPin("");
+      setExitOpen(true);
+    }
+  };
+
+  const verifyExit = async () => {
+    if (!comedor) return;
+    if (Date.now() < exitLockUntil) {
+      const secs = Math.ceil((exitLockUntil - Date.now()) / 1000);
+      toast.error(`Demasiados intentos. Espera ${secs}s`);
+      return;
+    }
+    if (!/^\d{4}$/.test(exitPin)) {
+      toast.error("PIN inválido");
+      return;
+    }
+    setVerifying(true);
+    const rpcAny = supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: boolean | null; error: unknown }>;
+    const { data, error } = await rpcAny("verify_kiosk_pin", {
+      p_comedor_id: comedor.id,
+      p_pin: exitPin,
+    });
+    setVerifying(false);
+    if (error || !data) {
+      const next = exitFails + 1;
+      setExitPin("");
+      if (next >= 5) {
+        setExitLockUntil(Date.now() + 30_000);
+        setExitFails(0);
+        toast.error("Demasiados intentos. Bloqueado 30 segundos.");
+      } else {
+        setExitFails(next);
+        toast.error(`PIN incorrecto (${next}/5)`);
+      }
+      return;
+    }
+    setExitOpen(false);
+    navigate("/");
   };
 
   return (
