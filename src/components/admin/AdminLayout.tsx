@@ -8,6 +8,8 @@ const TITLES: Record<string, string> = {
   "/admin/responses": "Respuestas",
   "/admin/reports": "Reportes",
   "/admin/comedores": "Comedores",
+  "/admin/roles": "Roles",
+  "/admin/asistente": "Asistente IA",
 };
 
 export function AdminLayout() {
