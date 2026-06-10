@@ -1,12 +1,14 @@
 import { Outlet, useLocation, NavLink } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { FileText, LogOut } from "lucide-react";
+import { FileText, LogOut, Home, ClipboardList } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/admin/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 
 const TITLES: Record<string, string> = {
+  "/cliente": "Inicio",
+  "/cliente/encuesta": "Encuesta",
   "/cliente/reportes": "Reportes",
 };
 
@@ -32,6 +34,33 @@ export function ClienteLayout() {
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3">
+          <NavLink
+            to="/cliente"
+            end
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-brand/10 text-brand"
+                  : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+              )
+            }
+          >
+            <Home className="h-4 w-4" /> Inicio
+          </NavLink>
+          <NavLink
+            to="/cliente/encuesta"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-brand/10 text-brand"
+                  : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+              )
+            }
+          >
+            <ClipboardList className="h-4 w-4" /> Encuesta
+          </NavLink>
           <NavLink
             to="/cliente/reportes"
             className={({ isActive }) =>
