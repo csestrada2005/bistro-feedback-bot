@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -45,21 +46,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<AdminProfile | null>(null);
+  const loadId = useRef(0);
 
-  const loadProfile = useCallback(async (uid: string | undefined | null) => {
+  const loadProfile = useCallback(async (uid: string | undefined | null, markReady = false) => {
+    const currentLoad = ++loadId.current;
     if (!uid) {
       setProfile(null);
+      if (markReady && currentLoad === loadId.current) setLoading(false);
       return null;
     }
-    const p = await fetchProfile(uid);
-    setProfile(p);
-    return p;
+    setLoading(true);
+    try {
+      const p = await fetchProfile(uid);
+      if (currentLoad === loadId.current) setProfile(p);
+      return p;
+    } finally {
+      if (currentLoad === loadId.current) setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+    let active = true;
+
+    const syncSession = async (newSession: Session | null) => {
+      if (!active) return;
       setSession(newSession);
-      setTimeout(() => void loadProfile(newSession?.user?.id), 0);
+      await loadProfile(newSession?.user?.id, true);
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+      setLoading(true);
+      setSession(newSession);
+      setTimeout(() => void syncSession(newSession), 0);
       if (event === "PASSWORD_RECOVERY") {
         if (window.location.pathname !== "/reset-password") {
           window.location.replace("/reset-password");
@@ -78,12 +96,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     void supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      await loadProfile(data.session?.user?.id);
-      setLoading(false);
+      await syncSession(data.session);
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, [loadProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
