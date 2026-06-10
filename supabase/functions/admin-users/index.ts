@@ -3,8 +3,7 @@ import { z } from "https://esm.sh/zod@3.23.8";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 const RoleEnum = z.enum(["admin", "cliente"]);
@@ -61,11 +60,7 @@ Deno.serve(async (req) => {
     return json(401, { error: "Invalid token" });
   }
 
-  const { data: caller } = await admin
-    .from("usuarios")
-    .select("rol")
-    .eq("id", callerId)
-    .maybeSingle();
+  const { data: caller } = await admin.from("usuarios").select("rol").eq("id", callerId).maybeSingle();
   if (caller?.rol !== "admin") {
     console.error("admin-users forbidden: rol no admin", { callerId, rol: caller?.rol });
     return json(403, { error: "Solo administradores" });
@@ -87,14 +82,19 @@ Deno.serve(async (req) => {
       .select("id, nombre, rol, comedor_id, created_at")
       .order("created_at", { ascending: false });
     if (rErr) return json(500, { error: rErr.message });
-    const { data: assignments } = await admin
-      .from("usuario_comedores")
-      .select("usuario_id, comedor_id");
+    const { data: assignments } = await admin.from("usuario_comedores").select("usuario_id, comedor_id");
     const map: Record<string, string[]> = {};
     for (const a of assignments ?? []) {
       (map[a.usuario_id] ??= []).push(a.comedor_id);
     }
-    const users: { user_id: string; email: string; nombre: string; rol: string; comedor_ids: string[]; created_at: string }[] = [];
+    const users: {
+      user_id: string;
+      email: string;
+      nombre: string;
+      rol: string;
+      comedor_ids: string[];
+      created_at: string;
+    }[] = [];
     for (const r of rows ?? []) {
       let email = "—";
       try {
@@ -130,16 +130,16 @@ Deno.serve(async (req) => {
       id: created.user.id,
       nombre: action.nombre ?? action.email.split("@")[0],
       rol: action.role,
-      comedor_id: action.role === "cliente" ? comedorIds[0] ?? null : null,
+      comedor_id: action.role === "cliente" ? (comedorIds[0] ?? null) : null,
     });
     if (roleErr) {
       await admin.auth.admin.deleteUser(created.user.id);
       return json(400, { error: roleErr.message });
     }
     if (action.role === "cliente" && comedorIds.length) {
-      await admin.from("usuario_comedores").insert(
-        comedorIds.map((c) => ({ usuario_id: created.user!.id, comedor_id: c })),
-      );
+      await admin
+        .from("usuario_comedores")
+        .insert(comedorIds.map((c) => ({ usuario_id: created.user!.id, comedor_id: c })));
     }
     return json(200, { ok: true, user_id: created.user.id });
   }
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
     if (action.nombre !== undefined) patch.nombre = action.nombre;
     // Keep legacy single comedor_id in sync with first assignment when provided
     if (action.comedor_ids !== undefined) {
-      patch.comedor_id = action.role === "admin" ? null : action.comedor_ids[0] ?? null;
+      patch.comedor_id = action.role === "admin" ? null : (action.comedor_ids[0] ?? null);
     } else if (action.role === "admin") {
       patch.comedor_id = null;
     }
@@ -164,9 +164,9 @@ Deno.serve(async (req) => {
     if (action.comedor_ids !== undefined) {
       await admin.from("usuario_comedores").delete().eq("usuario_id", action.user_id);
       if (action.role !== "admin" && action.comedor_ids.length) {
-        await admin.from("usuario_comedores").insert(
-          action.comedor_ids.map((c) => ({ usuario_id: action.user_id, comedor_id: c })),
-        );
+        await admin
+          .from("usuario_comedores")
+          .insert(action.comedor_ids.map((c) => ({ usuario_id: action.user_id, comedor_id: c })));
       }
     } else if (action.role === "admin") {
       await admin.from("usuario_comedores").delete().eq("usuario_id", action.user_id);
@@ -190,3 +190,4 @@ Deno.serve(async (req) => {
 
   return json(400, { error: "Unknown action" });
 });
+//esto es un comentario
