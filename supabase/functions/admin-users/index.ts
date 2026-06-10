@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.9.6";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,20 @@ const UpdateSchema = z.object({
   nombre: z.string().trim().min(1).max(120).optional(),
 });
 const Body = z.union([ListSchema, InviteSchema, RemoveSchema, UpdateSchema]);
+const jwksByUrl = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+async function getVerifiedUserId(authHeader: string, supabaseUrl: string) {
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+  const issuer = `${supabaseUrl.replace(/\/$/, "")}/auth/v1`;
+  let jwks = jwksByUrl.get(issuer);
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+    jwksByUrl.set(issuer, jwks);
+  }
+  const { payload } = await jwtVerify(token, jwks, { issuer, audience: "authenticated" });
+  return typeof payload.sub === "string" ? payload.sub : null;
+}
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -47,16 +62,13 @@ Deno.serve(async (req) => {
 
   const admin = createClient(supabaseUrl, serviceKey);
 
-  // Cryptographically verify caller's JWT via Supabase Auth.
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const token = auth.replace(/^Bearer\s+/i, "");
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data, error: userErr } = await userClient.auth.getUser(token);
-  const callerId = data.user?.id ?? null;
-  if (userErr || !callerId) {
-    console.error("admin-users auth getUser failed", userErr);
+  let callerId: string | null = null;
+  try {
+    callerId = await getVerifiedUserId(auth, supabaseUrl);
+  } catch (e) {
+    console.error("admin-users JWT verification failed", e);
+  }
+  if (!callerId) {
     return json(401, { error: "Invalid token" });
   }
 

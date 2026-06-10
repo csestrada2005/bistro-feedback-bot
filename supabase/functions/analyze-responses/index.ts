@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { createRemoteJWKSet, jwtVerify } from "npm:jose@5.9.6";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,20 @@ type Respuesta = {
 
 // Rate limit: 1 análisis / 60s por usuario
 const calls = new Map<string, number>();
+const jwksByUrl = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+async function getVerifiedUserId(authHeader: string, supabaseUrl: string) {
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+  const issuer = `${supabaseUrl.replace(/\/$/, "")}/auth/v1`;
+  let jwks = jwksByUrl.get(issuer);
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+    jwksByUrl.set(issuer, jwks);
+  }
+  const { payload } = await jwtVerify(token, jwks, { issuer, audience: "authenticated" });
+  return typeof payload.sub === "string" ? payload.sub : null;
+}
 
 const SYSTEM_PROMPT = `Eres un consultor senior de operaciones de comedores industriales en México. Analizas datos de encuestas de satisfacción de comensales y entregas insights ejecutivos accionables.
 
@@ -45,10 +60,10 @@ async function callLovableAI(apiKey: string, userPrompt: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      "Lovable-API-Key": apiKey,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-3-flash-preview",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -90,19 +105,16 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Verificar JWT criptográficamente con Supabase Auth
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    const userClient = createClient(supabaseUrl, supabaseAnon, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser(token);
-    const userId = userData.user?.id ?? null;
-    if (userErr || !userId) {
-      console.error("analyze-responses auth getUser failed", userErr);
+    let userId: string | null = null;
+    try {
+      userId = await getVerifiedUserId(authHeader, supabaseUrl);
+    } catch (e) {
+      console.error("analyze-responses JWT verification failed", e);
+    }
+    if (!userId) {
       return new Response(JSON.stringify({ error: "Sesión inválida" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
