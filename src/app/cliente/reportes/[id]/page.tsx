@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useState as useReactState } from "react";
 
 type Kpi = { label: string; value: string };
 type Reco = { titulo: string; detalle: string; prioridad: string };
