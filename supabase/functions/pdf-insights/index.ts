@@ -111,13 +111,37 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient = createClient(supabaseUrl, serviceKey);
 
-  let userId: string | null = null;
+  // Require authenticated admin
   const authHeader = req.headers.get("Authorization");
-  if (authHeader) {
-    const { data: u } = await createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    }).auth.getUser();
-    userId = u?.user?.id ?? null;
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  const { data: u, error: uErr } = await createClient(
+    supabaseUrl,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } },
+  ).auth.getUser(token);
+  const userId = u?.user?.id ?? null;
+  if (uErr || !userId) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const { data: callerRow } = await adminClient
+    .from("usuarios")
+    .select("rol")
+    .eq("id", userId)
+    .maybeSingle();
+  if (callerRow?.rol !== "admin") {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
