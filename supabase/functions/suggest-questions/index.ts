@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -40,6 +42,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Auth: solo administradores autenticados
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "No autorizado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: claimsRes, error: claimsErr } = await userClient.auth.getClaims(token);
+    const userId = claimsRes?.claims?.sub ?? null;
+    if (claimsErr || !userId) {
+      return new Response(JSON.stringify({ error: "Sesión inválida" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const adminClient = createClient(supabaseUrl, serviceKey);
+    const { data: callerRow } = await adminClient
+      .from("usuarios")
+      .select("rol")
+      .eq("id", userId)
+      .maybeSingle();
+    if (callerRow?.rol !== "admin") {
+      return new Response(JSON.stringify({ error: "Solo administradores" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return new Response(JSON.stringify({ error: "Body inválido" }), {
@@ -59,11 +97,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Rate limit por IP + Authorization
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const auth = req.headers.get("authorization") ?? "";
-    const key = `${ip}|${auth.slice(-32)}`;
-    if (rateLimited(key)) {
+    // Rate limit por usuario autenticado
+    if (rateLimited(userId)) {
       return new Response(
         JSON.stringify({ error: "Demasiadas solicitudes. Intenta en un minuto." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
