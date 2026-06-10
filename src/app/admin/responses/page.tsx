@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addDays, format, startOfDay, subDays } from "date-fns";
 import { es } from "date-fns/locale";
-import Papa from "papaparse";
 import {
   ArrowUpDown,
   CalendarIcon,
-  Download,
   Eye,
-  FlaskConical,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -222,75 +219,6 @@ export default function ResponsesPage() {
     setPage(0);
   }, [comedorId, desde, hasta, tipoFiltro, soloIncidente, sortDesc]);
 
-  const exportCSV = async () => {
-    const desdeISO = startOfDay(desde).toISOString();
-    const hastaISO = addDays(startOfDay(hasta), 1).toISOString();
-    let q = supabase
-      .from("encuestas")
-      .select("id, fecha, comedor_id")
-      .gte("fecha", desdeISO)
-      .lt("fecha", hastaISO)
-      .order("fecha", { ascending: !sortDesc });
-    if (comedorId !== ALL) q = q.eq("comedor_id", comedorId);
-
-    const { data: encs, error } = await q;
-    if (error) {
-      toast.error("Error exportando");
-      return;
-    }
-    const encuestas = (encs ?? []) as Encuesta[];
-    const ids = encuestas.map((e) => e.id);
-    let resps: Respuesta[] = [];
-    if (ids.length) {
-      const { data } = await supabase.from("respuestas").select("*").in("encuesta_id", ids);
-      resps = (data ?? []) as Respuesta[];
-    }
-    const incidenteQ = preguntas.find((p) => p.tipo === "si_no");
-    const otras = preguntas.filter((p) => p.id !== incidenteQ?.id);
-
-    const rowsCSV = encuestas
-      .map((e) => {
-        const own = resps.filter((r) => r.encuesta_id === e.id);
-        const obj: Record<string, string | number | null> = {
-          id: e.id,
-          fecha: format(new Date(e.fecha), "yyyy-MM-dd HH:mm"),
-          comedor: comedorById.get(e.comedor_id)?.nombre ?? "",
-        };
-        const incR = incidenteQ ? own.find((r) => r.pregunta_id === incidenteQ.id) : undefined;
-        obj["incidente_si_no"] = incR?.valor_booleano == null ? "" : incR.valor_booleano ? "sí" : "no";
-        obj["incidente_desc"] = incR?.valor_texto ?? "";
-        otras.forEach((p) => {
-          const r = own.find((x) => x.pregunta_id === p.id);
-          let v: string | number = "";
-          if (r) {
-            if (p.tipo === "escala_5") v = r.valor_numerico ?? "";
-            else v = r.valor_texto ?? "";
-          }
-          obj[p.texto] = v;
-        });
-        // Filtros aplican igual que en tabla
-        if (soloIncidente && incR?.valor_booleano !== true) return null;
-        return obj;
-      })
-      .filter(Boolean) as Record<string, unknown>[];
-
-    const csv = Papa.unparse(rowsCSV);
-    const comedorSlug =
-      comedorId === ALL ? "todos" : comedorById.get(comedorId)?.slug ?? "comedor";
-    const fname = `respuestas_${comedorSlug}_${format(desde, "yyyyMMdd")}_${format(
-      hasta,
-      "yyyyMMdd"
-    )}.csv`;
-    // BOM para que Excel detecte UTF-8
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fname;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("CSV descargado");
-  };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -319,21 +247,6 @@ export default function ResponsesPage() {
     }
   };
 
-  const toggleEsPrueba = async (r: Row) => {
-    const next = !r.es_prueba;
-    // Optimistic
-    setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, es_prueba: next } : x)));
-    const { error } = await supabase
-      .from("encuestas")
-      .update({ es_prueba: next })
-      .eq("id", r.id);
-    if (error) {
-      setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, es_prueba: r.es_prueba } : x)));
-      toast.error("No se pudo actualizar");
-    } else {
-      toast.success(next ? "Marcada como prueba" : "Marcada como válida");
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -381,12 +294,7 @@ export default function ResponsesPage() {
               Solo con incidente
             </Label>
           </div>
-          <div className="ml-auto">
-            <Button onClick={exportCSV} variant="outline">
-              <Download className="mr-2 h-4 w-4" /> Exportar CSV
-            </Button>
           </div>
-        </div>
       </div>
 
       {/* Tabla */}
@@ -460,16 +368,6 @@ export default function ResponsesPage() {
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => setDetail(r)}>
                           <Eye className="mr-1 h-4 w-4" /> Ver detalle
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label={r.es_prueba ? "Marcar como válida" : "Marcar como prueba"}
-                          title={r.es_prueba ? "Marcar como válida" : "Marcar como prueba"}
-                          className={cn(r.es_prueba && "text-amber-600 hover:text-amber-700")}
-                          onClick={() => void toggleEsPrueba(r)}
-                        >
-                          <FlaskConical className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"

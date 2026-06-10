@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Copy, ExternalLink, Pencil, Plus, Store, Trash2 } from "lucide-react";
+import { Pencil, Plus, Store, Trash2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -210,15 +210,6 @@ export default function ComedoresPage() {
     }
   };
 
-  const copyUrl = async (c: Comedor) => {
-    const url = `${window.location.origin}/survey/${c.slug}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("URL del kiosko copiada");
-    } catch {
-      toast.error("No se pudo copiar");
-    }
-  };
 
   const handleDelete = async () => {
     if (!toDelete) return;
@@ -323,28 +314,6 @@ export default function ComedoresPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        title="Copiar URL del kiosko"
-                        onClick={() => void copyUrl(c)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        title="Abrir kiosko"
-                        asChild
-                      >
-                        <a
-                          href={`/survey/${c.slug}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
                         title="Editar"
                         onClick={() => openEdit(c)}
                       >
@@ -370,7 +339,7 @@ export default function ComedoresPage() {
 
       {/* Modal crear/editar */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[520px]">
+        <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editing ? "Editar comedor" : "Nuevo comedor"}
