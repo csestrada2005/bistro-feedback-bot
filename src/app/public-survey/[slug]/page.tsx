@@ -195,14 +195,7 @@ export default function PublicSurveyPage() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const encuestaId = crypto.randomUUID();
-      const { error: encErr } = await supabase
-        .from("encuestas")
-        .insert({ id: encuestaId, comedor_id: comedor.id });
-      if (encErr) throw encErr;
-
       const rows: {
-        encuesta_id: string;
         pregunta_id: string;
         valor_numerico: number | null;
         valor_booleano: boolean | null;
@@ -213,22 +206,29 @@ export default function PublicSurveyPage() {
         const a = answers[p.id];
         if (!a) continue;
         if (p.tipo === "escala_5" && a.numerico) {
-          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: a.numerico, valor_booleano: null, valor_texto: null });
+          rows.push({ pregunta_id: p.id, valor_numerico: a.numerico, valor_booleano: null, valor_texto: null });
         } else if (p.tipo === "si_no" && typeof a.booleano === "boolean") {
-          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: a.booleano, valor_texto: a.texto?.trim() || null });
+          rows.push({ pregunta_id: p.id, valor_numerico: null, valor_booleano: a.booleano, valor_texto: a.texto?.trim() || null });
         } else if (p.tipo === "texto_abierto" && a.texto?.trim()) {
-          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: a.texto.trim() });
+          rows.push({ pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: a.texto.trim() });
         } else if (p.tipo === "texto_multiple_3" && a.textos) {
           const joined = a.textos.map((t) => t.trim()).filter(Boolean).join(" | ");
           if (joined) {
-            rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: joined });
+            rows.push({ pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: joined });
           }
         }
       }
 
-      if (rows.length) {
-        const { error: respErr } = await supabase.from("respuestas").insert(rows);
-        if (respErr) throw respErr;
+      if (rows.length === 0) {
+        setDone(true);
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("submit-survey-v2", {
+        body: { comedor_id: comedor.id, respuestas: rows },
+      });
+      if (error || !data?.ok) {
+        console.error("submit error", error, data);
+        throw new Error("submit failed");
       }
       setDone(true);
     } catch (err) {
