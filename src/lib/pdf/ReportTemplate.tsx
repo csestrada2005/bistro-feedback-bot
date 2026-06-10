@@ -6,9 +6,14 @@ import {
   StyleSheet,
   Svg,
   Rect,
+  Image,
 } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import logoAsset from "@/assets/main-catering-logo.jpg.asset.json";
+
+const LOGO_URL =
+  typeof window !== "undefined" ? `${window.location.origin}${logoAsset.url}` : logoAsset.url;
 
 export type AnalisisIA = {
   resumenEjecutivo: string;
@@ -155,7 +160,7 @@ function fmtDate(d: Date) {
 function PageFooter({ pageNumber }: { pageNumber: number }) {
   return (
     <View style={s.footer} fixed>
-      <Text>Generado por NEBU Studio · Plataforma de Encuestas con IA</Text>
+      <Text>Main Catering · Reporte de satisfacción</Text>
       <Text>Página {pageNumber}</Text>
     </View>
   );
@@ -164,12 +169,7 @@ function PageFooter({ pageNumber }: { pageNumber: number }) {
 function LogoPlaceholder() {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-      <Svg width={36} height={36} viewBox="0 0 36 36">
-        <Rect x={0} y={0} width={36} height={36} rx={8} fill={C.primary} />
-        <Rect x={8} y={10} width={20} height={3} fill="#fff" />
-        <Rect x={8} y={16} width={14} height={3} fill="#fff" />
-        <Rect x={8} y={22} width={18} height={3} fill="#fff" />
-      </Svg>
+      <Image src={LOGO_URL} style={{ width: 56, height: 56, objectFit: "contain" }} />
       <View>
         <Text style={{ fontFamily: "Helvetica-Bold", fontSize: 12, color: C.primary }}>
           Main Catering
@@ -226,7 +226,7 @@ function CoverPage({ data }: { data: ReportData }) {
       <View style={{ position: "absolute", bottom: 48, left: 56, right: 56 }}>
         <View style={{ borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
           <Text style={{ fontSize: 9, color: C.muted }}>
-            Generado por NEBU Studio · Plataforma de Encuestas con IA
+            Main Catering · Reporte ejecutivo de satisfacción
           </Text>
           <Text style={{ fontSize: 8, color: C.muted, marginTop: 2 }}>
             {format(new Date(), "dd/MM/yyyy HH:mm")}
@@ -617,7 +617,7 @@ export function ReportTemplate({ data }: { data: ReportData }) {
   return (
     <Document
       title={`Reporte ${data.comedorNombre}`}
-      author="Main Catering · NEBU Studio"
+      author="Main Catering"
     >
       <CoverPage data={data} />
       <ResumenPage data={data} />

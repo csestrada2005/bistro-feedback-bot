@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertTriangle, ArrowLeft, Lightbulb, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileDown, Lightbulb, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type Kpi = { label: string; value: string };
 type Reco = { titulo: string; detalle: string; prioridad: string };
@@ -33,6 +34,21 @@ export default function ClienteReporteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [rep, setRep] = useState<Reporte | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!rep) return;
+    setDownloading(true);
+    try {
+      const { downloadReportPdf } = await import("@/lib/pdf/generateReportPdf");
+      await downloadReportPdf(rep.id);
+    } catch (e) {
+      console.error(e);
+      toast.error("No pudimos generar el PDF");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -65,22 +81,32 @@ export default function ClienteReporteDetailPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <Link
-          to="/cliente/reportes"
-          className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> Volver
-        </Link>
-        <h2 className="text-2xl font-bold text-foreground">{rep.titulo ?? "Reporte"}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {rep.comedores?.nombre && <>{rep.comedores.nombre} · </>}
-          {format(new Date(rep.fecha_desde), "dd MMM yyyy", { locale: es })} —{" "}
-          {format(new Date(rep.fecha_hasta), "dd MMM yyyy", { locale: es })}
-          {rep.publicado_at && (
-            <> · Publicado {format(new Date(rep.publicado_at), "dd MMM yyyy", { locale: es })}</>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Link
+            to="/cliente/reportes"
+            className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Volver
+          </Link>
+          <h2 className="text-2xl font-bold text-foreground">{rep.titulo ?? "Reporte"}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {rep.comedores?.nombre && <>{rep.comedores.nombre} · </>}
+            {format(new Date(rep.fecha_desde), "dd MMM yyyy", { locale: es })} —{" "}
+            {format(new Date(rep.fecha_hasta), "dd MMM yyyy", { locale: es })}
+            {rep.publicado_at && (
+              <> · Publicado {format(new Date(rep.publicado_at), "dd MMM yyyy", { locale: es })}</>
+            )}
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleDownload} disabled={downloading}>
+          {downloading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <FileDown className="mr-2 h-4 w-4" />
           )}
-        </p>
+          Descargar PDF
+        </Button>
       </div>
 
       {rep.kpis?.length > 0 && (

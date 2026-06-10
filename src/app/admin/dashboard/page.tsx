@@ -56,12 +56,7 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import {
-  Tooltip as UiTooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -451,27 +446,6 @@ export default function DashboardPage() {
               <Button variant="outline" onClick={runAnalysis} disabled={aiLoading || !comedorId}>
                 <Brain className="mr-2 h-4 w-4" /> Analizar con IA
               </Button>
-              {reporteId ? (
-                <Button variant="outline" onClick={downloadPdf} disabled={pdfLoading}>
-                  {pdfLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <FileDown className="mr-2 h-4 w-4" />
-                  )}
-                  Descargar reporte PDF
-                </Button>
-              ) : (
-                <UiTooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0}>
-                      <Button variant="outline" disabled>
-                        <FileDown className="mr-2 h-4 w-4" /> Descargar reporte PDF
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Disponible tras análisis con IA</TooltipContent>
-                </UiTooltip>
-              )}
             </div>
           </div>
         </div>
@@ -640,7 +614,7 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 <p className="text-base font-medium">Analizando respuestas…</p>
-                <p className="text-sm text-muted-foreground">Esto toma entre 15 y 30 segundos.</p>
+                <p className="text-sm text-muted-foreground">Esto puede tomar varios minutos.</p>
               </div>
             ) : aiAnalisis ? (
               <AnalysisView analisis={aiAnalisis} />
