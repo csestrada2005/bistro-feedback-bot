@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { FileText, Inbox } from "lucide-react";
+import { FileText, Inbox, FileDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -28,6 +29,20 @@ export default function ClienteReportesPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [comedorFilter, setComedorFilter] = useState<string>("all");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (id: string) => {
+    setDownloadingId(id);
+    try {
+      const { downloadReportPdf } = await import("@/lib/pdf/generateReportPdf");
+      await downloadReportPdf(id);
+    } catch (e) {
+      console.error(e);
+      toast.error("No pudimos generar el PDF");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     void (async () => {
@@ -104,11 +119,11 @@ export default function ClienteReportesPage() {
         <ul className="space-y-2">
           {filtered.map((r) => (
             <li key={r.id}>
-              <Link
-                to={`/cliente/reportes/${r.id}`}
-                className="flex items-center justify-between rounded-xl border border-border bg-card p-4 transition hover:border-brand/40 hover:bg-foreground/5"
-              >
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4 transition hover:border-brand/40">
+                <Link
+                  to={`/cliente/reportes/${r.id}`}
+                  className="flex flex-1 items-center gap-3"
+                >
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10 text-brand">
                     <FileText className="h-5 w-5" />
                   </div>
@@ -122,13 +137,28 @@ export default function ClienteReportesPage() {
                       {format(new Date(r.fecha_hasta), "dd MMM yyyy", { locale: es })}
                     </p>
                   </div>
+                </Link>
+                <div className="flex items-center gap-3">
+                  <span className="hidden text-xs text-muted-foreground sm:inline">
+                    {r.publicado_at
+                      ? format(new Date(r.publicado_at), "dd MMM yyyy", { locale: es })
+                      : ""}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownload(r.id)}
+                    disabled={downloadingId === r.id}
+                  >
+                    {downloadingId === r.id ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileDown className="mr-2 h-4 w-4" />
+                    )}
+                    PDF
+                  </Button>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {r.publicado_at
-                    ? format(new Date(r.publicado_at), "dd MMM yyyy", { locale: es })
-                    : ""}
-                </span>
-              </Link>
+              </div>
             </li>
           ))}
         </ul>
