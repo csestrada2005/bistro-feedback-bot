@@ -361,6 +361,7 @@ export type Database = {
           comedor_id: string | null
           created_at: string
           id: string
+          kiosk_exit_pin_hash: string | null
           nombre: string
           rol: Database["public"]["Enums"]["user_rol"]
         }
@@ -368,6 +369,7 @@ export type Database = {
           comedor_id?: string | null
           created_at?: string
           id: string
+          kiosk_exit_pin_hash?: string | null
           nombre?: string
           rol: Database["public"]["Enums"]["user_rol"]
         }
@@ -375,6 +377,7 @@ export type Database = {
           comedor_id?: string | null
           created_at?: string
           id?: string
+          kiosk_exit_pin_hash?: string | null
           nombre?: string
           rol?: Database["public"]["Enums"]["user_rol"]
         }
@@ -393,6 +396,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      comedor_has_kiosk_pin: {
+        Args: { p_comedor_id: string }
+        Returns: boolean
+      }
       current_user_comedor: { Args: never; Returns: string }
       current_user_rol: {
         Args: never
@@ -408,8 +415,14 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      my_kiosk_pin_set: { Args: never; Returns: boolean }
+      set_my_kiosk_pin: { Args: { _pin: string }; Returns: undefined }
       user_has_comedor: {
         Args: { _comedor_id: string; _user_id: string }
+        Returns: boolean
+      }
+      verify_kiosk_pin: {
+        Args: { p_comedor_id: string; p_pin: string }
         Returns: boolean
       }
     }

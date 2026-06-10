@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import { ArrowLeft, Check, Loader2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,15 @@ import { KioskLayout } from "@/components/survey/KioskLayout";
 import { BrandLogo } from "@/components/BrandLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const DemoSwitcherDialog = lazy(() => import("@/components/survey/DemoSwitcherDialog"));
 
@@ -46,6 +55,12 @@ export default function PublicSurveyPage() {
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoTaps, setDemoTaps] = useState(0);
   const [allComedores, setAllComedores] = useState<Comedor[]>([]);
+  const [pinRequired, setPinRequired] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [exitPin, setExitPin] = useState("");
+  const [exitFails, setExitFails] = useState(0);
+  const [exitLockUntil, setExitLockUntil] = useState(0);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -61,11 +76,17 @@ export default function PublicSurveyPage() {
         return;
       }
       setComedor(com as Comedor);
-      const { data: qs, error: qErr } = await supabase.rpc("get_next_survey_questions", {
-        p_comedor_id: com.id,
-      });
+      const rpcAny = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: unknown }>;
+      const [{ data: qs, error: qErr }, pinRes] = await Promise.all([
+        supabase.rpc("get_next_survey_questions", { p_comedor_id: com.id }),
+        rpcAny("comedor_has_kiosk_pin", { p_comedor_id: com.id }),
+      ]);
       if (qErr) console.error("rotation error", qErr);
       setPreguntas((qs ?? []) as Pregunta[]);
+      setPinRequired(!pinRes.data);
       setLoading(false);
       // RUM: cargar el módulo en idle para no competir con el primer render.
       const comId = (com as Comedor).id;
@@ -115,11 +136,17 @@ export default function PublicSurveyPage() {
 
   const total = preguntas.length;
 
-  const reset = () => {
+  const reset = async () => {
     setAnswers(initial());
     setStep(0);
     setDone(false);
     setCountdown(5);
+    if (comedor) {
+      const { data: qs } = await supabase.rpc("get_next_survey_questions", {
+        p_comedor_id: comedor.id,
+      });
+      setPreguntas((qs ?? []) as Pregunta[]);
+    }
   };
 
   useEffect(() => {
@@ -129,7 +156,7 @@ export default function PublicSurveyPage() {
       setCountdown((c) => {
         if (c <= 1) {
           clearInterval(t);
-          reset();
+          void reset();
           return 0;
         }
         return c - 1;
@@ -168,14 +195,7 @@ export default function PublicSurveyPage() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const encuestaId = crypto.randomUUID();
-      const { error: encErr } = await supabase
-        .from("encuestas")
-        .insert({ id: encuestaId, comedor_id: comedor.id });
-      if (encErr) throw encErr;
-
       const rows: {
-        encuesta_id: string;
         pregunta_id: string;
         valor_numerico: number | null;
         valor_booleano: boolean | null;
@@ -186,22 +206,29 @@ export default function PublicSurveyPage() {
         const a = answers[p.id];
         if (!a) continue;
         if (p.tipo === "escala_5" && a.numerico) {
-          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: a.numerico, valor_booleano: null, valor_texto: null });
+          rows.push({ pregunta_id: p.id, valor_numerico: a.numerico, valor_booleano: null, valor_texto: null });
         } else if (p.tipo === "si_no" && typeof a.booleano === "boolean") {
-          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: a.booleano, valor_texto: a.texto?.trim() || null });
+          rows.push({ pregunta_id: p.id, valor_numerico: null, valor_booleano: a.booleano, valor_texto: a.texto?.trim() || null });
         } else if (p.tipo === "texto_abierto" && a.texto?.trim()) {
-          rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: a.texto.trim() });
+          rows.push({ pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: a.texto.trim() });
         } else if (p.tipo === "texto_multiple_3" && a.textos) {
           const joined = a.textos.map((t) => t.trim()).filter(Boolean).join(" | ");
           if (joined) {
-            rows.push({ encuesta_id: encuestaId, pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: joined });
+            rows.push({ pregunta_id: p.id, valor_numerico: null, valor_booleano: null, valor_texto: joined });
           }
         }
       }
 
-      if (rows.length) {
-        const { error: respErr } = await supabase.from("respuestas").insert(rows);
-        if (respErr) throw respErr;
+      if (rows.length === 0) {
+        setDone(true);
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("submit-survey-v2", {
+        body: { comedor_id: comedor.id, respuestas: rows },
+      });
+      if (error || !data?.ok) {
+        console.error("submit error", error, data);
+        throw new Error("submit failed");
       }
       setDone(true);
     } catch (err) {
@@ -217,20 +244,86 @@ export default function PublicSurveyPage() {
   const currentQ = isQuestion ? preguntas[step - 1] : null;
 
   const handleBack = () => {
-    if (step > 0 && !done) setStep((s) => s - 1);
+    if (done) return;
+    if (step > 1) setStep((s) => s - 1);
+    else {
+      setExitPin("");
+      setExitOpen(true);
+    }
+  };
+
+  const verifyExit = async () => {
+    if (!comedor) return;
+    if (Date.now() < exitLockUntil) {
+      const secs = Math.ceil((exitLockUntil - Date.now()) / 1000);
+      toast.error(`Demasiados intentos. Espera ${secs}s`);
+      return;
+    }
+    if (!/^\d{4}$/.test(exitPin)) {
+      toast.error("PIN inválido");
+      return;
+    }
+    setVerifying(true);
+    const rpcAny = supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: boolean | null; error: unknown }>;
+    const { data, error } = await rpcAny("verify_kiosk_pin", {
+      p_comedor_id: comedor.id,
+      p_pin: exitPin,
+    });
+    setVerifying(false);
+    if (error || !data) {
+      const next = exitFails + 1;
+      setExitPin("");
+      if (next >= 5) {
+        setExitLockUntil(Date.now() + 30_000);
+        setExitFails(0);
+        toast.error("Demasiados intentos. Bloqueado 30 segundos.");
+      } else {
+        setExitFails(next);
+        toast.error(`PIN incorrecto (${next}/5)`);
+      }
+      return;
+    }
+    setExitOpen(false);
+    navigate("/");
   };
 
   return (
     <KioskLayout>
+      {pinRequired && (
+        <Dialog open modal>
+          <DialogContent
+            className="sm:max-w-md"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>Configura un PIN primero</DialogTitle>
+              <DialogDescription>
+                El cliente debe configurar el PIN de salida del kiosko desde su dashboard
+                antes de usar este comedor.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => navigate("/")} className="w-full">
+                Volver al inicio
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <div className="flex items-center justify-between px-6 pt-4 sm:px-8 sm:pt-6">
         <div className="w-14">
           {step > 0 && !done && (
             <button
               onClick={handleBack}
-              aria-label="Pregunta anterior"
+              aria-label={step > 1 ? "Pregunta anterior" : "Salir del kiosko"}
               className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"
             >
-              <ArrowLeft className="h-7 w-7" />
+              {step > 1 ? <ArrowLeft className="h-7 w-7" /> : <LogOut className="h-7 w-7" />}
             </button>
           )}
         </div>
@@ -436,36 +529,8 @@ export default function PublicSurveyPage() {
           </div>
         )}
 
-        {done && (
-          <div className="flex flex-col items-center text-center">
-            <div className="flex h-40 w-40 items-center justify-center rounded-full bg-emerald-100 animate-in zoom-in-50 duration-500">
-              <Check className="h-24 w-24 text-emerald-600" strokeWidth={3} />
-            </div>
-            <h1 className="mt-8 text-5xl font-extrabold text-foreground sm:text-6xl">
-              ¡Gracias por tu opinión!
-            </h1>
-            <p className="mt-4 max-w-xl text-2xl text-muted-foreground">
-              Tu respuesta ayuda al equipo de Main Catering a mejorar todos los días.
-            </p>
-            <div
-              className="mt-10 flex h-24 w-24 items-center justify-center rounded-full border-4 border-brand text-3xl font-extrabold text-brand"
-              aria-live="polite"
-              aria-label={`Reiniciando en ${countdown} segundos`}
-            >
-              {countdown}
-            </div>
-            <p className="mt-3 text-base text-muted-foreground">Reiniciando…</p>
-          </div>
-        )}
       </section>
 
-      {isWelcome && !done && (
-        <div className="px-8 pb-6 text-center">
-          <Link to="/" className="text-sm text-muted-foreground/70 hover:text-foreground">
-            Salir del kiosko
-          </Link>
-        </div>
-      )}
       {isQuestion && (
         <footer className="border-t border-border py-3 text-center text-sm text-muted-foreground">
           {comedor.nombre}
@@ -486,6 +551,57 @@ export default function PublicSurveyPage() {
           />
         </Suspense>
       )}
+
+      {done && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-brand px-6 text-center text-brand-foreground animate-in fade-in duration-300">
+          <div className="flex h-40 w-40 items-center justify-center rounded-full bg-white/20 animate-in zoom-in-50 duration-500 sm:h-48 sm:w-48">
+            <Check className="h-24 w-24 text-white sm:h-28 sm:w-28" strokeWidth={3} />
+          </div>
+          <h1 className="mt-10 max-w-3xl text-4xl font-extrabold leading-tight sm:text-6xl">
+            ¡Gracias por tomarte el tiempo de responder!
+          </h1>
+          <p className="mt-6 max-w-2xl text-xl sm:text-2xl text-white/90">
+            Apreciamos mucho tu feedback. Nos ayuda a mejorar todos los días.
+          </p>
+          <p className="mt-12 text-sm sm:text-base text-white/80" aria-live="polite">
+            Volviendo a la encuesta en {countdown}…
+          </p>
+        </div>
+      )}
+
+      <Dialog open={exitOpen} onOpenChange={setExitOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salir del modo encuesta</DialogTitle>
+            <DialogDescription>
+              Ingresa el PIN de 4 dígitos del cliente para salir del kiosko.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-4">
+            <InputOTP
+              maxLength={4}
+              value={exitPin}
+              onChange={(v) => setExitPin(v.replace(/\D/g, ""))}
+              pattern="^\d*$"
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} className="h-14 w-14 text-2xl" />
+                <InputOTPSlot index={1} className="h-14 w-14 text-2xl" />
+                <InputOTPSlot index={2} className="h-14 w-14 text-2xl" />
+                <InputOTPSlot index={3} className="h-14 w-14 text-2xl" />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExitOpen(false)} disabled={verifying}>
+              Cancelar
+            </Button>
+            <Button onClick={verifyExit} disabled={verifying || exitPin.length !== 4}>
+              {verifying ? "Verificando..." : "Salir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </KioskLayout>
   );
 }
