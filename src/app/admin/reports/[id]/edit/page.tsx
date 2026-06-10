@@ -96,6 +96,8 @@ export default function ReportEditPage() {
       toast.success(publish ? "Reporte publicado" : "Cambios guardados");
       if (publish) {
         update({ estado: "publicado", publicado_at: new Date().toISOString() });
+        navigate("/admin/reports");
+        return;
       }
     } catch (e) {
       console.error(e);
