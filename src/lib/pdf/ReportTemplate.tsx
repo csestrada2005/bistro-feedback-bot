@@ -226,7 +226,7 @@ function CoverPage({ data }: { data: ReportData }) {
       <View style={{ position: "absolute", bottom: 48, left: 56, right: 56 }}>
         <View style={{ borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
           <Text style={{ fontSize: 9, color: C.muted }}>
-            Generado por NEBU Studio · Plataforma de Encuestas con IA
+            Main Catering · Reporte ejecutivo de satisfacción
           </Text>
           <Text style={{ fontSize: 8, color: C.muted, marginTop: 2 }}>
             {format(new Date(), "dd/MM/yyyy HH:mm")}
