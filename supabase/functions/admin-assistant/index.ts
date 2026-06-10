@@ -170,6 +170,9 @@ async function executeReadTool(
     case "list_preguntas": {
       let q = supabase.from("preguntas").select("id, texto, tipo, activa, orden").order("orden");
       if (typeof args.activa === "boolean") q = q.eq("activa", args.activa);
+      if (typeof args.texto_contiene === "string" && args.texto_contiene.trim()) {
+        q = q.ilike("texto", `%${args.texto_contiene.trim()}%`);
+      }
       const { data: preguntas } = await q;
       const { data: asignaciones } = await supabase
         .from("comedor_preguntas")
@@ -187,6 +190,9 @@ async function executeReadTool(
     case "list_comedores": {
       let q = supabase.from("comedores").select("id, nombre, slug, empresa_cliente, activo");
       if (typeof args.activo === "boolean") q = q.eq("activo", args.activo);
+      if (typeof args.nombre_contiene === "string" && args.nombre_contiene.trim()) {
+        q = q.ilike("nombre", `%${args.nombre_contiene.trim()}%`);
+      }
       const { data } = await q.order("nombre");
       return data ?? [];
     }
@@ -360,12 +366,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    let pending: {
+    const pendingList: Array<{
       tool_call_id: string;
       kind: string;
       params: Record<string, unknown>;
       summary: string;
-    } | null = null;
+    }> = [];
 
     for (const call of toolCalls) {
       const name = call.function?.name;
@@ -376,20 +382,20 @@ Deno.serve(async (req) => {
         args = {};
       }
       if (name === "execute_mutation") {
-        // No ejecutar. Marcar pendiente y devolver al cliente.
-        pending = {
+        const item = {
           tool_call_id: call.id,
           kind: String(args.kind ?? ""),
           params: (args.params ?? {}) as Record<string, unknown>,
           summary: String(args.summary ?? ""),
         };
+        pendingList.push(item);
         messages.push({
           role: "tool",
           tool_call_id: call.id,
           content: JSON.stringify({
             requires_approval: true,
-            summary: pending.summary,
-            kind: pending.kind,
+            summary: item.summary,
+            kind: item.kind,
           }),
         });
       } else {
@@ -402,7 +408,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (pending) {
+    if (pendingList.length > 0) {
       // Si el assistant message anterior no tiene contenido natural, pedir uno breve
       const lastAssistant = messages[messages.length - 2];
       const noNaturalText =
@@ -424,7 +430,7 @@ Deno.serve(async (req) => {
       }
       return json(200, {
         status: "pending_approval",
-        pending,
+        pending: pendingList,
         messages: messages.slice(1),
       });
     }
