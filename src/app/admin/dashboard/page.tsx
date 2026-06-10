@@ -451,27 +451,6 @@ export default function DashboardPage() {
               <Button variant="outline" onClick={runAnalysis} disabled={aiLoading || !comedorId}>
                 <Brain className="mr-2 h-4 w-4" /> Analizar con IA
               </Button>
-              {reporteId ? (
-                <Button variant="outline" onClick={downloadPdf} disabled={pdfLoading}>
-                  {pdfLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <FileDown className="mr-2 h-4 w-4" />
-                  )}
-                  Descargar reporte PDF
-                </Button>
-              ) : (
-                <UiTooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0}>
-                      <Button variant="outline" disabled>
-                        <FileDown className="mr-2 h-4 w-4" /> Descargar reporte PDF
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Disponible tras análisis con IA</TooltipContent>
-                </UiTooltip>
-              )}
             </div>
           </div>
         </div>
