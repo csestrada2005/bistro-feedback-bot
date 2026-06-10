@@ -94,18 +94,29 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Extraer userId del JWT (la plataforma ya verificó el token)
-    let userId: string | null = null;
-    try {
-      const token = authHeader.replace(/^Bearer\s+/i, "");
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      userId = payload?.sub ?? null;
-    } catch (_) {
-      userId = null;
-    }
-    if (!userId) {
+    // Verificar JWT criptográficamente con Supabase Auth
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const userClient = createClient(supabaseUrl, supabaseAnon, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: claimsRes, error: claimsErr } = await userClient.auth.getClaims(token);
+    const userId = claimsRes?.claims?.sub ?? null;
+    if (claimsErr || !userId) {
       return new Response(JSON.stringify({ error: "Sesión inválida" }), {
         status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Solo administradores pueden ejecutar análisis
+    const { data: callerRow } = await supabase
+      .from("usuarios")
+      .select("rol")
+      .eq("id", userId)
+      .maybeSingle();
+    if (callerRow?.rol !== "admin") {
+      return new Response(JSON.stringify({ error: "Solo administradores" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

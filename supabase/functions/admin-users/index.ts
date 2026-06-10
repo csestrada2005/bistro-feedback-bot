@@ -48,16 +48,15 @@ Deno.serve(async (req) => {
 
   const admin = createClient(supabaseUrl, serviceKey);
 
-  // Decode caller's JWT (sub) without requiring an active session.
-  let callerId: string | null = null;
-  try {
-    const token = auth.replace(/^Bearer\s+/i, "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    callerId = payload?.sub ?? null;
-  } catch (_) {
-    callerId = null;
-  }
-  if (!callerId) return json(401, { error: "Invalid token" });
+  // Cryptographically verify caller's JWT via Supabase Auth.
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const token = auth.replace(/^Bearer\s+/i, "");
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data: claimsRes, error: claimsErr } = await userClient.auth.getClaims(token);
+  const callerId = claimsRes?.claims?.sub ?? null;
+  if (claimsErr || !callerId) return json(401, { error: "Invalid token" });
 
   const { data: caller } = await admin
     .from("usuarios")
