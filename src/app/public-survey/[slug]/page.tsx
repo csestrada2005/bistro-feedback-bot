@@ -444,7 +444,7 @@ export default function PublicSurveyPage() {
                             ...a,
                             [currentQ.id]: { booleano: val, texto: val ? a[currentQ.id]?.texto ?? "" : "" },
                           }));
-                          if (!val) setTimeout(() => {
+                          if (val) setTimeout(() => {
                             if (step === total) void submit();
                             else setStep((s) => s + 1);
                           }, 120);
@@ -461,7 +461,7 @@ export default function PublicSurveyPage() {
                     );
                   })}
                 </div>
-                {answers[currentQ.id]?.booleano === true && (
+                {answers[currentQ.id]?.booleano === false && (
                   <div className="mt-10 animate-in fade-in duration-200">
                     <label className="block text-2xl font-semibold text-foreground">
                       Cuéntanos qué pasó
