@@ -55,6 +55,12 @@ export default function PublicSurveyPage() {
   const [demoOpen, setDemoOpen] = useState(false);
   const [demoTaps, setDemoTaps] = useState(0);
   const [allComedores, setAllComedores] = useState<Comedor[]>([]);
+  const [pinRequired, setPinRequired] = useState(false);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [exitPin, setExitPin] = useState("");
+  const [exitFails, setExitFails] = useState(0);
+  const [exitLockUntil, setExitLockUntil] = useState(0);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -70,11 +76,17 @@ export default function PublicSurveyPage() {
         return;
       }
       setComedor(com as Comedor);
-      const { data: qs, error: qErr } = await supabase.rpc("get_next_survey_questions", {
-        p_comedor_id: com.id,
-      });
+      const rpcAny = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: unknown }>;
+      const [{ data: qs, error: qErr }, pinRes] = await Promise.all([
+        supabase.rpc("get_next_survey_questions", { p_comedor_id: com.id }),
+        rpcAny("comedor_has_kiosk_pin", { p_comedor_id: com.id }),
+      ]);
       if (qErr) console.error("rotation error", qErr);
       setPreguntas((qs ?? []) as Pregunta[]);
+      setPinRequired(!pinRes.data);
       setLoading(false);
       // RUM: cargar el módulo en idle para no competir con el primer render.
       const comId = (com as Comedor).id;
