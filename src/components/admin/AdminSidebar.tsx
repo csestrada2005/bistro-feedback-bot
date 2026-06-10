@@ -7,6 +7,7 @@ import {
   FileText,
   Store,
   ShieldCheck,
+  Sparkles,
   LogOut,
   Menu,
   X,
@@ -26,6 +27,7 @@ const ITEMS = [
   { to: "/admin/reports", label: "Reportes", icon: FileText },
   { to: "/admin/comedores", label: "Comedores", icon: Store },
   { to: "/admin/roles", label: "Roles", icon: ShieldCheck },
+  { to: "/admin/asistente", label: "Asistente IA", icon: Sparkles },
 ];
 
 function SidebarBody({
