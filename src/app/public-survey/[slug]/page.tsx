@@ -471,7 +471,7 @@ export default function PublicSurveyPage() {
                       onChange={(e) =>
                         setAnswers((a) => ({
                           ...a,
-                          [currentQ.id]: { ...a[currentQ.id], booleano: true, texto: e.target.value.slice(0, 500) },
+                          [currentQ.id]: { ...a[currentQ.id], booleano: false, texto: e.target.value.slice(0, 500) },
                         }))
                       }
                       className="mt-3 min-h-[160px] rounded-2xl border-2 p-5 text-2xl"
