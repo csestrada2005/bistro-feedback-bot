@@ -292,15 +292,38 @@ export default function PublicSurveyPage() {
 
   return (
     <KioskLayout>
+      {pinRequired && (
+        <Dialog open modal>
+          <DialogContent
+            className="sm:max-w-md"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>Configura un PIN primero</DialogTitle>
+              <DialogDescription>
+                El cliente debe configurar el PIN de salida del kiosko desde su dashboard
+                antes de usar este comedor.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => navigate("/")} className="w-full">
+                Volver al inicio
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <div className="flex items-center justify-between px-6 pt-4 sm:px-8 sm:pt-6">
         <div className="w-14">
           {step > 0 && !done && (
             <button
               onClick={handleBack}
-              aria-label="Pregunta anterior"
+              aria-label={step > 1 ? "Pregunta anterior" : "Salir del kiosko"}
               className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-foreground hover:bg-muted/80"
             >
-              <ArrowLeft className="h-7 w-7" />
+              {step > 1 ? <ArrowLeft className="h-7 w-7" /> : <LogOut className="h-7 w-7" />}
             </button>
           )}
         </div>
