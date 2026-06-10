@@ -619,7 +619,7 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 <p className="text-base font-medium">Analizando respuestas…</p>
-                <p className="text-sm text-muted-foreground">Esto toma entre 15 y 30 segundos.</p>
+                <p className="text-sm text-muted-foreground">Esto puede tomar varios minutos.</p>
               </div>
             ) : aiAnalisis ? (
               <AnalysisView analisis={aiAnalisis} />
