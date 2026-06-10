@@ -136,11 +136,17 @@ export default function PublicSurveyPage() {
 
   const total = preguntas.length;
 
-  const reset = () => {
+  const reset = async () => {
     setAnswers(initial());
     setStep(0);
     setDone(false);
     setCountdown(5);
+    if (comedor) {
+      const { data: qs } = await supabase.rpc("get_next_survey_questions", {
+        p_comedor_id: comedor.id,
+      });
+      setPreguntas((qs ?? []) as Pregunta[]);
+    }
   };
 
   useEffect(() => {
@@ -150,7 +156,7 @@ export default function PublicSurveyPage() {
       setCountdown((c) => {
         if (c <= 1) {
           clearInterval(t);
-          reset();
+          void reset();
           return 0;
         }
         return c - 1;
