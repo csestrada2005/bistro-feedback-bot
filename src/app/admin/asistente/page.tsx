@@ -321,43 +321,65 @@ function MessageBubble({ message }: { message: ServerMessage }) {
   );
 }
 
-function ApprovalCard({
+function ApprovalStack({
   pending,
   applying,
-  onApprove,
-  onReject,
+  onApproveAll,
+  onRejectAll,
+  onRejectOne,
 }: {
-  pending: Pending;
+  pending: Pending[];
   applying: boolean;
-  onApprove: () => void;
-  onReject: () => void;
+  onApproveAll: () => void;
+  onRejectAll: () => void;
+  onRejectOne: (tool_call_id: string) => void;
 }) {
+  const count = pending.length;
   return (
-    <div className="ml-11 rounded-2xl border-2 border-amber-500/40 bg-amber-500/5 p-4">
-      <div className="flex items-start gap-3">
+    <div className="ml-11 space-y-3 rounded-2xl border-2 border-amber-500/40 bg-amber-500/5 p-4">
+      <div className="flex items-center gap-2">
         <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600" />
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-foreground">
-            El asistente quiere ejecutar una acción
-          </p>
-          <p className="mt-1 text-sm text-foreground/80">{pending.summary}</p>
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-              Ver detalles técnicos ({pending.kind})
-            </summary>
-            <pre className="mt-2 overflow-x-auto rounded bg-background p-2 text-xs">
-              {JSON.stringify(pending.params, null, 2)}
-            </pre>
-          </details>
-        </div>
+        <p className="text-sm font-semibold text-foreground">
+          {count === 1
+            ? "El asistente quiere ejecutar 1 acción"
+            : `El asistente quiere ejecutar ${count} acciones`}
+        </p>
       </div>
-      <div className="mt-3 flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onReject} disabled={applying}>
-          <X className="mr-1 h-4 w-4" /> Rechazar
+      <div className="space-y-2">
+        {pending.map((p) => (
+          <div key={p.tool_call_id} className="rounded-xl border border-amber-500/30 bg-background/60 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-foreground/90">{p.summary}</p>
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                    Detalles ({p.kind})
+                  </summary>
+                  <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 text-xs">
+                    {JSON.stringify(p.params, null, 2)}
+                  </pre>
+                </details>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRejectOne(p.tool_call_id)}
+                disabled={applying}
+                title="Quitar de la lista"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onRejectAll} disabled={applying}>
+          <X className="mr-1 h-4 w-4" /> Rechazar todo
         </Button>
-        <Button size="sm" onClick={onApprove} disabled={applying}>
+        <Button size="sm" onClick={onApproveAll} disabled={applying}>
           {applying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-          Aprobar y ejecutar
+          {count === 1 ? "Aprobar y ejecutar" : `Aprobar las ${count} acciones`}
         </Button>
       </div>
     </div>
