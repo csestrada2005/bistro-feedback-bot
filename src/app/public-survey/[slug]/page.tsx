@@ -78,14 +78,9 @@ export default function PublicSurveyPage() {
         setComedor(com as Comedor);
         comId = (com as Comedor).id;
 
-        const rpcAny = supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: unknown; error: unknown }>;
-
         const [qsRes, pinRes] = await Promise.allSettled([
           supabase.rpc("get_next_survey_questions", { p_comedor_id: com.id }),
-          rpcAny("comedor_has_kiosk_pin", { p_comedor_id: com.id }),
+          supabase.rpc("comedor_has_kiosk_pin", { p_comedor_id: com.id }),
         ]);
 
         if (qsRes.status === "fulfilled") {
@@ -294,11 +289,7 @@ export default function PublicSurveyPage() {
       return;
     }
     setVerifying(true);
-    const rpcAny = supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ data: boolean | null; error: unknown }>;
-    const { data, error } = await rpcAny("verify_kiosk_pin", {
+    const { data, error } = await supabase.rpc("verify_kiosk_pin", {
       p_comedor_id: comedor.id,
       p_pin: exitPin,
     });
