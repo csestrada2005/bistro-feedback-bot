@@ -529,36 +529,8 @@ export default function PublicSurveyPage() {
           </div>
         )}
 
-        {done && (
-          <div className="flex flex-col items-center text-center">
-            <div className="flex h-40 w-40 items-center justify-center rounded-full bg-emerald-100 animate-in zoom-in-50 duration-500">
-              <Check className="h-24 w-24 text-emerald-600" strokeWidth={3} />
-            </div>
-            <h1 className="mt-8 text-5xl font-extrabold text-foreground sm:text-6xl">
-              ¡Gracias por tu opinión!
-            </h1>
-            <p className="mt-4 max-w-xl text-2xl text-muted-foreground">
-              Tu respuesta ayuda al equipo de Main Catering a mejorar todos los días.
-            </p>
-            <div
-              className="mt-10 flex h-24 w-24 items-center justify-center rounded-full border-4 border-brand text-3xl font-extrabold text-brand"
-              aria-live="polite"
-              aria-label={`Reiniciando en ${countdown} segundos`}
-            >
-              {countdown}
-            </div>
-            <p className="mt-3 text-base text-muted-foreground">Reiniciando…</p>
-          </div>
-        )}
       </section>
 
-      {isWelcome && !done && (
-        <div className="px-8 pb-6 text-center">
-          <Link to="/" className="text-sm text-muted-foreground/70 hover:text-foreground">
-            Salir del kiosko
-          </Link>
-        </div>
-      )}
       {isQuestion && (
         <footer className="border-t border-border py-3 text-center text-sm text-muted-foreground">
           {comedor.nombre}
@@ -579,6 +551,57 @@ export default function PublicSurveyPage() {
           />
         </Suspense>
       )}
+
+      {done && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-brand px-6 text-center text-brand-foreground animate-in fade-in duration-300">
+          <div className="flex h-40 w-40 items-center justify-center rounded-full bg-white/20 animate-in zoom-in-50 duration-500 sm:h-48 sm:w-48">
+            <Check className="h-24 w-24 text-white sm:h-28 sm:w-28" strokeWidth={3} />
+          </div>
+          <h1 className="mt-10 max-w-3xl text-4xl font-extrabold leading-tight sm:text-6xl">
+            ¡Gracias por tomarte el tiempo de responder!
+          </h1>
+          <p className="mt-6 max-w-2xl text-xl sm:text-2xl text-white/90">
+            Apreciamos mucho tu feedback. Nos ayuda a mejorar todos los días.
+          </p>
+          <p className="mt-12 text-sm sm:text-base text-white/80" aria-live="polite">
+            Volviendo a la encuesta en {countdown}…
+          </p>
+        </div>
+      )}
+
+      <Dialog open={exitOpen} onOpenChange={setExitOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salir del modo encuesta</DialogTitle>
+            <DialogDescription>
+              Ingresa el PIN de 4 dígitos del cliente para salir del kiosko.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center py-4">
+            <InputOTP
+              maxLength={4}
+              value={exitPin}
+              onChange={(v) => setExitPin(v.replace(/\D/g, ""))}
+              pattern="^\d*$"
+            >
+              <InputOTPGroup>
+                <InputOTPSlot index={0} className="h-14 w-14 text-2xl" />
+                <InputOTPSlot index={1} className="h-14 w-14 text-2xl" />
+                <InputOTPSlot index={2} className="h-14 w-14 text-2xl" />
+                <InputOTPSlot index={3} className="h-14 w-14 text-2xl" />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExitOpen(false)} disabled={verifying}>
+              Cancelar
+            </Button>
+            <Button onClick={verifyExit} disabled={verifying || exitPin.length !== 4}>
+              {verifying ? "Verificando..." : "Salir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </KioskLayout>
   );
 }
