@@ -35,7 +35,7 @@ const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 async function callAssistant(messages: ServerMessage[]): Promise<{
   status: "done" | "pending_approval";
   messages: ServerMessage[];
-  pending?: Pending;
+  pending?: Pending | Pending[];
 }> {
   const { data: session } = await supabase.auth.getSession();
   const token = session.session?.access_token;
@@ -55,7 +55,9 @@ async function callAssistant(messages: ServerMessage[]): Promise<{
   return resp.json();
 }
 
-async function applyMutation(kind: string, params: Record<string, unknown>) {
+async function applyMutations(
+  pending: Pending[],
+): Promise<Array<{ tool_call_id?: string; kind: string; ok: boolean; result?: unknown; error?: string }>> {
   const { data: session } = await supabase.auth.getSession();
   const token = session.session?.access_token;
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/admin-assistant-apply`, {
@@ -65,16 +67,16 @@ async function applyMutation(kind: string, params: Record<string, unknown>) {
       apikey: PUBLISHABLE_KEY,
       Authorization: `Bearer ${token ?? PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ kind, params }),
+    body: JSON.stringify({ pending }),
   });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(body.error || `HTTP ${resp.status}`);
-  return body.result;
+  return body.results ?? [];
 }
 
 export default function AsistentePage() {
   const [messages, setMessages] = useState<ServerMessage[]>([]);
-  const [pending, setPending] = useState<{ index: number; data: Pending } | null>(null);
+  const [pending, setPending] = useState<Pending[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -89,6 +91,17 @@ export default function AsistentePage() {
     taRef.current?.focus();
   }, []);
 
+  const setPendingFromResponse = useCallback(
+    (p: Pending | Pending[] | undefined) => {
+      if (!p) {
+        setPending([]);
+        return;
+      }
+      setPending(Array.isArray(p) ? p : [p]);
+    },
+    [],
+  );
+
   const send = useCallback(
     async (text: string) => {
       const t = text.trim();
@@ -100,11 +113,8 @@ export default function AsistentePage() {
       try {
         const res = await callAssistant(nextMessages);
         setMessages(res.messages);
-        if (res.status === "pending_approval" && res.pending) {
-          setPending({ index: res.messages.length - 1, data: res.pending });
-        } else {
-          setPending(null);
-        }
+        if (res.status === "pending_approval") setPendingFromResponse(res.pending);
+        else setPending([]);
       } catch (e) {
         toast.error((e as Error).message);
       } finally {
@@ -112,31 +122,32 @@ export default function AsistentePage() {
         setTimeout(() => taRef.current?.focus(), 0);
       }
     },
-    [messages, loading],
+    [messages, loading, setPendingFromResponse],
   );
 
-  const handleApprove = async () => {
-    if (!pending) return;
+  const handleApproveAll = async () => {
+    if (pending.length === 0) return;
     setApplying(true);
     try {
-      const result = await applyMutation(pending.data.kind, pending.data.params);
-      toast.success("Acción aplicada");
-      // Inyectar el resultado como tool message y continuar el loop
-      const updated: ServerMessage[] = [
-        ...messages,
-        {
+      const results = await applyMutations(pending);
+      const ok = results.filter((r) => r.ok).length;
+      const failed = results.length - ok;
+      if (failed === 0) toast.success(`${ok} ${ok === 1 ? "acción aplicada" : "acciones aplicadas"}`);
+      else toast.warning(`${ok} aplicadas, ${failed} con error`);
+
+      const toolMessages: ServerMessage[] = results.map((r) => ({
           role: "tool",
-          tool_call_id: pending.data.tool_call_id,
-          content: JSON.stringify({ approved: true, result }),
-        },
-      ];
-      setPending(null);
+        tool_call_id: r.tool_call_id,
+        content: JSON.stringify(
+          r.ok ? { approved: true, result: r.result } : { approved: true, error: r.error },
+        ),
+      }));
+      const updated: ServerMessage[] = [...messages, ...toolMessages];
+      setPending([]);
       setLoading(true);
       const res = await callAssistant(updated);
       setMessages(res.messages);
-      if (res.status === "pending_approval" && res.pending) {
-        setPending({ index: res.messages.length - 1, data: res.pending });
-      }
+      if (res.status === "pending_approval") setPendingFromResponse(res.pending);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -145,29 +156,29 @@ export default function AsistentePage() {
     }
   };
 
-  const handleReject = async () => {
-    if (!pending) return;
-    const updated: ServerMessage[] = [
-      ...messages,
-      {
+  const handleRejectAll = async () => {
+    if (pending.length === 0) return;
+    const toolMessages: ServerMessage[] = pending.map((p) => ({
         role: "tool",
-        tool_call_id: pending.data.tool_call_id,
+      tool_call_id: p.tool_call_id,
         content: JSON.stringify({ approved: false, reason: "El admin rechazó la acción." }),
-      },
-    ];
-    setPending(null);
+    }));
+    const updated: ServerMessage[] = [...messages, ...toolMessages];
+    setPending([]);
     setLoading(true);
     try {
       const res = await callAssistant(updated);
       setMessages(res.messages);
-      if (res.status === "pending_approval" && res.pending) {
-        setPending({ index: res.messages.length - 1, data: res.pending });
-      }
+      if (res.status === "pending_approval") setPendingFromResponse(res.pending);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRejectOne = (tool_call_id: string) => {
+    setPending((prev) => prev.filter((p) => p.tool_call_id !== tool_call_id));
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -178,6 +189,7 @@ export default function AsistentePage() {
   };
 
   const visibleMessages = messages.filter((m) => m.role !== "tool");
+  const hasPending = pending.length > 0;
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-4xl flex-col gap-4">
@@ -221,12 +233,13 @@ export default function AsistentePage() {
           <MessageBubble key={i} message={m} />
         ))}
 
-        {pending && (
-          <ApprovalCard
-            pending={pending.data}
+        {hasPending && (
+          <ApprovalStack
+            pending={pending}
             applying={applying}
-            onApprove={handleApprove}
-            onReject={handleReject}
+            onApproveAll={handleApproveAll}
+            onRejectAll={handleRejectAll}
+            onRejectOne={handleRejectOne}
           />
         )}
 
@@ -246,7 +259,7 @@ export default function AsistentePage() {
           placeholder="Escribe tu pregunta o instrucción..."
           rows={2}
           className="resize-none border-0 bg-transparent p-2 text-base shadow-none focus-visible:ring-0"
-          disabled={loading || !!pending}
+          disabled={loading || hasPending}
         />
         <div className="mt-1 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
@@ -254,7 +267,7 @@ export default function AsistentePage() {
           </p>
           <Button
             onClick={() => void send(input)}
-            disabled={loading || !input.trim() || !!pending}
+            disabled={loading || !input.trim() || hasPending}
             size="sm"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
