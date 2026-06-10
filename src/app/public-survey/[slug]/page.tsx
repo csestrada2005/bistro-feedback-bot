@@ -245,7 +245,7 @@ export default function PublicSurveyPage() {
       }
 
       if (rows.length === 0) {
-        setDone(true);
+        toast.error("Responde al menos una pregunta antes de enviar");
         return;
       }
       const { data, error } = await supabase.functions.invoke("submit-survey-v2", {

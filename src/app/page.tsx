@@ -10,7 +10,7 @@ export default function LandingPage() {
         Plataforma de satisfacción de comedores
       </h1>
       <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-        Encuesta digital para los 15 comedores corporativos de Main Catering.
+        Encuesta digital de satisfacción para los comedores corporativos de Main Catering.
       </p>
       <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
         <Link to="/login">

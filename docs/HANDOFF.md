@@ -85,11 +85,11 @@ Las funciones que la usan: `suggest-questions`, `analyze-responses`.
 ## 7. Limitaciones conocidas
 
 - **Rate limit IA:** 1 análisis cada 60 segundos por usuario admin.
-- **Mínimo para análisis IA:** se requieren ≥5 encuestas en el rango seleccionado.
+- **Mínimo para análisis IA:** se requieren ≥3 encuestas en el rango seleccionado.
 - **PDF:** generación client-side (~3-5s para 50-100 encuestas). Si supera 200 encuestas puede tardar más.
 - **Export CSV:** límite recomendado 5.000 filas para evitar bloqueos del navegador.
 - **Auth social:** solo email/password. Google/Apple no configurados (se pueden activar en Cloud → Auth).
-- **Modelo IA fijo:** `claude-sonnet-4-20250514`. Cambio requiere editar edge functions.
+- **Modelo IA:** las edge functions usan el gateway de Lovable. `analyze-responses` usa `google/gemini-2.5-pro`; `suggest-questions`, `generate-insights`, `moderate-comment` y `pdf-insights` usan `google/gemini-3-flash-preview`. Cambio requiere editar edge functions.
 - **Sin notificaciones por email** de incidentes (roadmap fase 2).
 
 ---
@@ -111,7 +111,7 @@ Antes de avisar al cliente, verificar manualmente:
 - [ ] Enviar una encuesta de prueba completa
 - [ ] Login admin funciona
 - [ ] Dashboard muestra la encuesta de prueba
-- [ ] Botón "Analizar con IA" devuelve resumen (requiere ≥5 encuestas)
+- [ ] Botón "Analizar con IA" devuelve resumen (requiere ≥3 encuestas)
 - [ ] PDF se descarga y abre correctamente
 - [ ] Candado SSL verde en el dominio final
 - [ ] Vista mobile (375px) y tablet vertical (768px) sin scroll horizontal
