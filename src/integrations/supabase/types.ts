@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      assistant_actions: {
+        Row: {
+          admin_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          params: Json
+          result: Json | null
+          status: string
+          tool: string
+        }
+        Insert: {
+          admin_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          params?: Json
+          result?: Json | null
+          status?: string
+          tool: string
+        }
+        Update: {
+          admin_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          params?: Json
+          result?: Json | null
+          status?: string
+          tool?: string
+        }
+        Relationships: []
+      }
       comedor_preguntas: {
         Row: {
           comedor_id: string
