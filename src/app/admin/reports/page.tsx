@@ -67,7 +67,7 @@ export default function ReportsPage() {
       );
       const [{ data: comedores }, { data: usuarios }] = await Promise.all([
         comedorIds.length
-          ? supabase.from("comedores").select("id, nombre, empresa_cliente").in("id", comedorIds)
+          ? supabase.from("comedores_admin").select("id, nombre, empresa_cliente").in("id", comedorIds)
           : Promise.resolve({ data: [] }),
         userIds.length
           ? supabase.from("usuarios").select("id, nombre").in("id", userIds)
