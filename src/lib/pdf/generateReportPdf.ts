@@ -98,7 +98,7 @@ export async function buildReportDataFromReporteId(reporteId: string): Promise<R
   if (error || !reporte) throw new Error("Reporte no encontrado");
 
   const { data: comedor } = await supabase
-    .from("comedores")
+    .from("comedores_admin")
     .select("nombre, empresa_cliente, slug")
     .eq("id", reporte.comedor_id)
     .single();
