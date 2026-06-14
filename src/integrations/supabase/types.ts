@@ -72,6 +72,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "comedor_preguntas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores_admin"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "comedor_preguntas_pregunta_id_fkey"
             columns: ["pregunta_id"]
             isOneToOne: false
@@ -140,6 +147,13 @@ export type Database = {
             referencedRelation: "comedores"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "encuestas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores_admin"
+            referencedColumns: ["id"]
+          },
         ]
       }
       preguntas: {
@@ -176,6 +190,13 @@ export type Database = {
             columns: ["comedor_id"]
             isOneToOne: false
             referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preguntas_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores_admin"
             referencedColumns: ["id"]
           },
         ]
@@ -241,6 +262,13 @@ export type Database = {
             columns: ["comedor_id"]
             isOneToOne: false
             referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reportes_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores_admin"
             referencedColumns: ["id"]
           },
           {
@@ -354,6 +382,13 @@ export type Database = {
             referencedRelation: "comedores"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "rum_metrics_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores_admin"
+            referencedColumns: ["id"]
+          },
         ]
       }
       usuario_comedores: {
@@ -378,6 +413,13 @@ export type Database = {
             columns: ["comedor_id"]
             isOneToOne: false
             referencedRelation: "comedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuario_comedores_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores_admin"
             referencedColumns: ["id"]
           },
           {
@@ -422,11 +464,47 @@ export type Database = {
             referencedRelation: "comedores"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "usuarios_comedor_id_fkey"
+            columns: ["comedor_id"]
+            isOneToOne: false
+            referencedRelation: "comedores_admin"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      comedores_admin: {
+        Row: {
+          activo: boolean | null
+          created_at: string | null
+          empresa_cliente: string | null
+          id: string | null
+          nombre: string | null
+          rotation_offset: number | null
+          slug: string | null
+        }
+        Insert: {
+          activo?: boolean | null
+          created_at?: string | null
+          empresa_cliente?: string | null
+          id?: string | null
+          nombre?: string | null
+          rotation_offset?: number | null
+          slug?: string | null
+        }
+        Update: {
+          activo?: boolean | null
+          created_at?: string | null
+          empresa_cliente?: string | null
+          id?: string | null
+          nombre?: string | null
+          rotation_offset?: number | null
+          slug?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       comedor_has_kiosk_pin: {

@@ -89,7 +89,7 @@ export default function ComedoresPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("comedores")
+      .from("comedores_admin")
       .select("id, nombre, empresa_cliente, slug, activo, created_at")
       .order("nombre");
     if (error) {
