@@ -1,0 +1,1 @@
+ALTER VIEW public.comedores_admin SET (security_invoker = false, security_barrier = true);
