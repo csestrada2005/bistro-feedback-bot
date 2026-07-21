@@ -1,34 +1,26 @@
-## Diagnóstico
+## Alcance
 
-En `src/app/public-survey/[slug]/page.tsx`, el `useEffect` que carga la encuesta usa un `Promise.all([...])` con dos RPCs (`get_next_survey_questions` y `comedor_has_kiosk_pin`). Si **cualquiera** de las dos promesas se rechaza (excepción de red, fetch interrumpido por re-render/StrictMode, refresh de token simultáneo, etc.), la función async lanza sin handler y **`setLoading(false)` nunca corre** → spinner infinito.
+En la base solo existe un comedor que coincide: **Comedor S&P (Soler y Palau)** (`id 6ec66cf8…`). El comedor se conserva; solo se borran sus datos generados.
 
-Además, el RPC `comedor_has_kiosk_pin` se invoca con `rpcAny` (cast), y si el método retorna `{ data: null, error: ... }` por algún motivo, hoy se interpreta como "PIN no configurado" en lugar de mostrar un error claro.
+Datos a eliminar (verificados):
+- **24 encuestas** del comedor
+- **94 respuestas** vinculadas a esas encuestas
+- **8 reportes** del comedor (todos están en estado `borrador`, así que ninguno cliente los ve todavía)
 
-El flujo del cliente autenticado que clickea "Abrir" navega a `/survey/:slug` siendo cliente con sesión activa — la página originalmente fue diseñada como pública y no maneja bien algunos timings con la sesión.
+Se conserva:
+- El registro del comedor y su configuración (`comedor_preguntas`, `usuario_comedores`, PIN, slug, etc.)
+- Preguntas del pool global.
 
-## Cambios
+## Pasos
 
-### 1. `src/app/public-survey/[slug]/page.tsx` — hacer la carga resiliente
+1. Borrar `respuestas` cuyo `encuesta_id` pertenezca a encuestas del comedor S&P.
+2. Borrar `encuestas` del comedor S&P.
+3. Borrar `reportes` del comedor S&P (los 8 borradores). Esto también elimina cualquier PDF referenciado por esas filas.
+4. Borrar del bucket privado `pdf-reports` los archivos bajo el prefijo `6ec66cf8-b081-4ea9-9f07-1cd656330a94/` si existen, para no dejar PDFs huérfanos.
+5. Resetear `rotation_offset = 0` en `comedores` para que el pool de preguntas vuelva a empezar en limpio.
 
-- Envolver TODA la lógica del `useEffect` en un `try/catch/finally` que garantice `setLoading(false)` siempre.
-- Reemplazar `Promise.all([...])` por `Promise.allSettled([...])` para que un fallo en `comedor_has_kiosk_pin` no impida cargar las preguntas (y viceversa).
-- Manejar cada resultado individualmente:
-  - Si `get_next_survey_questions` falló → `setPreguntas([])` y mostrar toast de error.
-  - Si `comedor_has_kiosk_pin` falló o devolvió `null` → tratar como "estado desconocido" pero **no** bloquear con el modal de PIN (solo bloquear cuando explícitamente devuelve `false`).
-- Loggear el error real a consola para poder diagnosticar futuras regresiones.
+Todo se ejecuta en una sola operación de datos para que sea atómico.
 
-### 2. (Opcional) Forzar firma de sesión limpia para el kiosko
+## Nota
 
-Si el cliente sigue autenticado en el dispositivo, sus headers de autorización viajan en cada RPC y eso puede gatillar refresh de tokens que retrase la respuesta. Como el kiosko está pensado para uso público y el cliente ya cerró sesión al entregar el dispositivo, agregar un botón "Iniciar modo kiosko" no aplica aquí, pero el `try/finally` del paso 1 cubre el caso de timing.
-
-### 3. Verificación
-
-Después de aplicar:
-- Reproducir: login como cliente → configurar PIN → click "Abrir" → la página debe mostrar la pantalla de bienvenida en < 2 s, nunca el spinner permanente.
-- Si por alguna razón los RPCs fallan, el usuario verá un toast con el error y la pantalla "Comedor no encontrado" o la encuesta con 0 preguntas en vez de un spinner infinito.
-
-## Archivos a tocar
-
-- `src/app/public-survey/[slug]/page.tsx` (solo el `useEffect` de carga inicial).
-
-No requiere migraciones ni cambios en edge functions.
+No se encontró un comedor "Soler" separado de "Palau"; ambos están juntos como un único comedor "S&P". Si en realidad te referías a dos comedores distintos, dime los nombres exactos y ajusto el plan antes de ejecutar.
