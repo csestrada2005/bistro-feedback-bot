@@ -70,6 +70,7 @@ export default function PublicSurveyPage() {
   const [exitFails, setExitFails] = useState(0);
   const [exitLockUntil, setExitLockUntil] = useState(0);
   const [verifying, setVerifying] = useState(false);
+  const scaleOptions = comedor?.escala_niveles === 5 ? SCALE_OPTIONS_5 : SCALE_OPTIONS_4;
 
   useEffect(() => {
     void (async () => {
