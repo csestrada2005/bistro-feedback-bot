@@ -85,28 +85,37 @@ export type Database = {
           activo: boolean
           created_at: string
           empresa_cliente: string
+          escala_niveles: number
           id: string
           nombre: string
+          plantilla_reporte: string
           rotation_offset: number
           slug: string
+          total_personal: number | null
         }
         Insert: {
           activo?: boolean
           created_at?: string
           empresa_cliente: string
+          escala_niveles?: number
           id?: string
           nombre: string
+          plantilla_reporte?: string
           rotation_offset?: number
           slug: string
+          total_personal?: number | null
         }
         Update: {
           activo?: boolean
           created_at?: string
           empresa_cliente?: string
+          escala_niveles?: number
           id?: string
           nombre?: string
+          plantilla_reporte?: string
           rotation_offset?: number
           slug?: string
+          total_personal?: number | null
         }
         Relationships: []
       }
@@ -182,6 +191,7 @@ export type Database = {
       }
       reportes: {
         Row: {
+          agrupaciones: Json | null
           alertas: Json
           analisis_ia: Json | null
           comedor_id: string
@@ -200,6 +210,7 @@ export type Database = {
           url_pdf: string | null
         }
         Insert: {
+          agrupaciones?: Json | null
           alertas?: Json
           analisis_ia?: Json | null
           comedor_id: string
@@ -218,6 +229,7 @@ export type Database = {
           url_pdf?: string | null
         }
         Update: {
+          agrupaciones?: Json | null
           alertas?: Json
           analisis_ia?: Json | null
           comedor_id?: string
@@ -431,10 +443,13 @@ export type Database = {
           activo: boolean | null
           created_at: string | null
           empresa_cliente: string | null
+          escala_niveles: number | null
           id: string | null
           nombre: string | null
+          plantilla_reporte: string | null
           rotation_offset: number | null
           slug: string | null
+          total_personal: number | null
         }
         Relationships: []
       }
@@ -446,10 +461,13 @@ export type Database = {
           activo: boolean
           created_at: string
           empresa_cliente: string
+          escala_niveles: number
           id: string
           nombre: string
+          plantilla_reporte: string
           rotation_offset: number
           slug: string
+          total_personal: number
         }[]
       }
       comedor_has_kiosk_pin: {

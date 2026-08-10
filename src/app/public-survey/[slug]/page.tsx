@@ -28,13 +28,22 @@ type Pregunta = {
   orden: number;
 };
 
-type Comedor = { id: string; slug: string; nombre: string };
+type Comedor = { id: string; slug: string; nombre: string; escala_niveles?: number };
 
-const SCALE_OPTIONS = [
+const SCALE_OPTIONS_4 = [
   { value: 5, label: "Excelente", emoji: "😋", classes: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700" },
   { value: 4, label: "Muy bueno", emoji: "🙂", classes: "bg-lime-500 hover:bg-lime-600 text-white border-lime-600" },
   { value: 3, label: "Bueno", emoji: "😐", classes: "bg-yellow-400 hover:bg-yellow-500 text-foreground border-yellow-500" },
   { value: 2, label: "Área de oportunidad", emoji: "💡", classes: "bg-sky-500 hover:bg-sky-600 text-white border-sky-600" },
+];
+
+// Escala de 5 niveles con estrellas (formato Soler y Palau), de mejor a peor.
+const SCALE_OPTIONS_5 = [
+  { value: 5, label: "Muy bueno", emoji: "★★★★★", classes: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700" },
+  { value: 4, label: "Bueno", emoji: "★★★★", classes: "bg-lime-500 hover:bg-lime-600 text-white border-lime-600" },
+  { value: 3, label: "Regular", emoji: "★★★", classes: "bg-yellow-400 hover:bg-yellow-500 text-foreground border-yellow-500" },
+  { value: 2, label: "Malo", emoji: "★★", classes: "bg-orange-500 hover:bg-orange-600 text-white border-orange-600" },
+  { value: 1, label: "Deficiente", emoji: "★", classes: "bg-rose-600 hover:bg-rose-700 text-white border-rose-700" },
 ];
 
 type AnswerMap = Record<string, { numerico?: number; booleano?: boolean; texto?: string; textos?: string[] }>;
@@ -61,6 +70,7 @@ export default function PublicSurveyPage() {
   const [exitFails, setExitFails] = useState(0);
   const [exitLockUntil, setExitLockUntil] = useState(0);
   const [verifying, setVerifying] = useState(false);
+  const scaleOptions = comedor?.escala_niveles === 5 ? SCALE_OPTIONS_5 : SCALE_OPTIONS_4;
 
   useEffect(() => {
     void (async () => {
@@ -69,7 +79,7 @@ export default function PublicSurveyPage() {
       try {
         const { data: com, error: comErr } = await supabase
           .from("comedores")
-          .select("id, slug, nombre")
+          .select("id, slug, nombre, escala_niveles")
           .eq("slug", slug)
           .eq("activo", true)
           .maybeSingle();
@@ -402,8 +412,13 @@ export default function PublicSurveyPage() {
             </h2>
 
             {currentQ.tipo === "escala_5" && (
-              <div className="mt-10 grid grid-cols-4 gap-2 sm:mt-12 sm:gap-4">
-                {SCALE_OPTIONS.map((opt) => {
+              <div
+                className={cn(
+                  "mt-10 grid gap-2 sm:mt-12 sm:gap-4",
+                  scaleOptions.length === 5 ? "grid-cols-5" : "grid-cols-4"
+                )}
+              >
+                {scaleOptions.map((opt) => {
                   const selected = answers[currentQ.id]?.numerico === opt.value;
                   return (
                     <button
@@ -422,7 +437,16 @@ export default function PublicSurveyPage() {
                         selected && "ring-4 ring-offset-2 ring-foreground/30"
                       )}
                     >
-                      <span className="text-3xl sm:text-5xl">{opt.emoji}</span>
+                      <span
+                        className={cn(
+                          "leading-none text-amber-300 drop-shadow",
+                          scaleOptions.length === 5
+                            ? "text-base sm:text-2xl"
+                            : "text-3xl text-inherit sm:text-5xl"
+                        )}
+                      >
+                        {opt.emoji}
+                      </span>
                       <span className="text-2xl font-extrabold sm:text-4xl">{opt.value}</span>
                       <span className="hidden text-sm font-bold sm:block sm:text-lg">{opt.label}</span>
                     </button>
