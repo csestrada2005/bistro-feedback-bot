@@ -69,8 +69,7 @@ const s = StyleSheet.create({
   coverBar: { height: 10, backgroundColor: C.red },
   coverBody: { paddingHorizontal: 56, paddingTop: 120 },
   coverKicker: { fontSize: 11, color: C.grey, letterSpacing: 1 },
-  coverTitle: { fontSize 
-: 34, fontFamily: "Helvetica-Bold", color: C.grey, marginTop: 14 },
+  coverTitle: { fontSize: 34, fontFamily: "Helvetica-Bold", color: C.grey, marginTop: 14 },
   coverSub: { fontSize: 14, color: C.muted, marginTop: 10 },
   titleRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
   titleAccent: { width: 4, height: 22, backgroundColor: C.red, marginRight: 10 },
