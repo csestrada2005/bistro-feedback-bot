@@ -437,7 +437,16 @@ export default function PublicSurveyPage() {
                         selected && "ring-4 ring-offset-2 ring-foreground/30"
                       )}
                     >
-                      <span className="text-3xl sm:text-5xl">{opt.emoji}</span>
+                      <span
+                        className={cn(
+                          "leading-none text-amber-300 drop-shadow",
+                          scaleOptions.length === 5
+                            ? "text-base sm:text-2xl"
+                            : "text-3xl text-inherit sm:text-5xl"
+                        )}
+                      >
+                        {opt.emoji}
+                      </span>
                       <span className="text-2xl font-extrabold sm:text-4xl">{opt.value}</span>
                       <span className="hidden text-sm font-bold sm:block sm:text-lg">{opt.label}</span>
                     </button>
