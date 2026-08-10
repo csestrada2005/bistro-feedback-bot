@@ -28,13 +28,22 @@ type Pregunta = {
   orden: number;
 };
 
-type Comedor = { id: string; slug: string; nombre: string };
+type Comedor = { id: string; slug: string; nombre: string; escala_niveles?: number };
 
-const SCALE_OPTIONS = [
+const SCALE_OPTIONS_4 = [
   { value: 5, label: "Excelente", emoji: "😋", classes: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700" },
   { value: 4, label: "Muy bueno", emoji: "🙂", classes: "bg-lime-500 hover:bg-lime-600 text-white border-lime-600" },
   { value: 3, label: "Bueno", emoji: "😐", classes: "bg-yellow-400 hover:bg-yellow-500 text-foreground border-yellow-500" },
   { value: 2, label: "Área de oportunidad", emoji: "💡", classes: "bg-sky-500 hover:bg-sky-600 text-white border-sky-600" },
+];
+
+// Escala de 5 niveles con estrellas (formato Soler y Palau), de mejor a peor.
+const SCALE_OPTIONS_5 = [
+  { value: 5, label: "Muy bueno", emoji: "★★★★★", classes: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700" },
+  { value: 4, label: "Bueno", emoji: "★★★★", classes: "bg-lime-500 hover:bg-lime-600 text-white border-lime-600" },
+  { value: 3, label: "Regular", emoji: "★★★", classes: "bg-yellow-400 hover:bg-yellow-500 text-foreground border-yellow-500" },
+  { value: 2, label: "Malo", emoji: "★★", classes: "bg-orange-500 hover:bg-orange-600 text-white border-orange-600" },
+  { value: 1, label: "Deficiente", emoji: "★", classes: "bg-rose-600 hover:bg-rose-700 text-white border-rose-700" },
 ];
 
 type AnswerMap = Record<string, { numerico?: number; booleano?: boolean; texto?: string; textos?: string[] }>;
