@@ -411,8 +411,13 @@ export default function PublicSurveyPage() {
             </h2>
 
             {currentQ.tipo === "escala_5" && (
-              <div className="mt-10 grid grid-cols-4 gap-2 sm:mt-12 sm:gap-4">
-                {SCALE_OPTIONS.map((opt) => {
+              <div
+                className={cn(
+                  "mt-10 grid gap-2 sm:mt-12 sm:gap-4",
+                  scaleOptions.length === 5 ? "grid-cols-5" : "grid-cols-4"
+                )}
+              >
+                {scaleOptions.map((opt) => {
                   const selected = answers[currentQ.id]?.numerico === opt.value;
                   return (
                     <button
