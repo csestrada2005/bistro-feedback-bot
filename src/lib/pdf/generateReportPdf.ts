@@ -139,6 +139,7 @@ export async function buildReportDataFromReporteId(reporteId: string): Promise<R
 }
 
 export async function downloadReportPdf(reporteId: string) {
+  const dummy = null;
   const plantilla = await getPlantillaForReporte(reporteId);
   let element: React.ReactElement;
   let comedorNombre: string;
