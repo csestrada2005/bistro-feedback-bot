@@ -5,6 +5,7 @@ import React from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { ReportTemplate, type AnalisisIA, type ReportData } from "./ReportTemplate";
+import { SPReportTemplate, type GrupoSP, type ReportDataSP } from "./SPReportTemplate";
 
 type Pregunta = {
   id: string;
@@ -138,18 +139,35 @@ export async function buildReportDataFromReporteId(reporteId: string): Promise<R
 }
 
 export async function downloadReportPdf(reporteId: string) {
-  const data = await buildReportDataFromReporteId(reporteId);
-  // @react-pdf/renderer's pdf() expects a <Document>; our wrapper returns one.
-  const element = React.createElement(ReportTemplate, { data });
+  const plantilla = await getPlantillaForReporte(reporteId);
+  let element: React.ReactElement;
+  let comedorNombre: string;
+  let fechaDesde: Date;
+  let fechaHasta: Date;
+
+  if (plantilla === "sp") {
+    const spData = await buildSPReportDataFromReporteId(reporteId);
+    element = React.createElement(SPReportTemplate, { data: spData });
+    comedorNombre = spData.comedorNombre;
+    fechaDesde = spData.fechaDesde;
+    fechaHasta = spData.fechaHasta;
+  } else {
+    const data = await buildReportDataFromReporteId(reporteId);
+    // @react-pdf/renderer's pdf() expects a <Document>; our wrapper returns one.
+    element = React.createElement(ReportTemplate, { data });
+    comedorNombre = data.comedorNombre;
+    fechaDesde = data.fechaDesde;
+    fechaHasta = data.fechaHasta;
+  }
   const blob = await pdf(element as unknown as Parameters<typeof pdf>[0]).toBlob();
   const slug =
     (await supabase
       .from("comedores")
       .select("slug")
-      .eq("nombre", data.comedorNombre)
+      .eq("nombre", comedorNombre)
       .maybeSingle()).data?.slug ?? "comedor";
-  const filename = `reporte_${slug}_${format(data.fechaDesde, "yyyy-MM-dd")}_${format(
-    data.fechaHasta,
+  const filename = `reporte_${slug}_${format(fechaDesde, "yyyy-MM-dd")}_${format(
+    fechaHasta,
     "yyyy-MM-dd"
   )}.pdf`;
 
