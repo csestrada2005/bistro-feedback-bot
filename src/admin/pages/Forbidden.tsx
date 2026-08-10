@@ -6,6 +6,7 @@ import { useAuth } from "@/admin/auth/AuthProvider";
 export default function Forbidden() {
   const { profile } = useAuth();
   const rol = profile?.rol;
+  const home = rol === "cliente" ? "/cliente" : "/admin/dashboard";
   return (
     <div className="flex min-h-screen items-center justify-center bg-[hsl(210_40%_98%)] px-4">
       <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
@@ -17,7 +18,7 @@ export default function Forbidden() {
           Tu rol actual ({rol ?? "sin rol"}) no tiene permiso para esta sección.
         </p>
         <Button asChild className="mt-6">
-          <Link to="/admin/dashboard">Volver al dashboard</Link>
+          <Link to={home}>Volver al inicio</Link>
         </Button>
       </div>
     </div>

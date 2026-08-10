@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/admin/auth/AuthProvider";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const { profile, refreshProfile } = useAuth();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -42,7 +44,12 @@ export default function ResetPasswordPage() {
         return;
       }
       toast.success("Contraseña actualizada");
-      navigate("/admin/dashboard", { replace: true });
+      const current = profile ?? (await refreshProfile());
+      if (!current) {
+        navigate("/admin/no-access", { replace: true });
+        return;
+      }
+      navigate(current.rol === "cliente" ? "/cliente" : "/admin/dashboard", { replace: true });
     } finally {
       setSubmitting(false);
     }
