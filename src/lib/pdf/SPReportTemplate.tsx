@@ -47,13 +47,29 @@ const SLICE_COLORS: Record<number, string> = {
   1: "#9C27B0",
 };
 
-const ESCALA: { valor: number; estrellas: string; label: string }[] = [
-  { valor: 5, estrellas: "★★★★★", label: "Muy bueno" },
-  { valor: 4, estrellas: "★★★★", label: "Bueno" },
-  { valor: 3, estrellas: "★★★", label: "Regular" },
-  { valor: 2, estrellas: "★★", label: "Malo" },
-  { valor: 1, estrellas: "★", label: "Deficiente" },
+const ESCALA: { valor: number; label: string }[] = [
+  { valor: 5, label: "Muy bueno" },
+  { valor: 4, label: "Bueno" },
+  { valor: 3, label: "Regular" },
+  { valor: 2, label: "Malo" },
+  { valor: 1, label: "Deficiente" },
 ];
+
+const STAR_PATH =
+  "M 10 0.8 L 12.6 7 L 19.2 7.5 L 14.1 11.8 L 15.7 18.3 L 10 14.8 L 4.3 18.3 L 5.9 11.8 L 0.8 7.5 L 7.4 7 Z";
+
+/** Estrellas dibujadas en SVG: las fuentes base de PDF no incluyen el glifo ★. */
+function Stars({ count, size = 9 }: { count: number; size?: number }) {
+  const gap = 1.5;
+  const width = count * size + (count - 1) * gap;
+  return (
+    <Svg width={width} height={size} viewBox={`0 0 ${count * 20 + (count - 1) * 3} 20`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <Path key={i} d={STAR_PATH} fill="#E0A800" transform={`translate(${i * 23}, 0)`} />
+      ))}
+    </Svg>
+  );
+}
 
 const s = StyleSheet.create({
   page: {
@@ -78,7 +94,7 @@ const s = StyleSheet.create({
   body: { flexDirection: "row", gap: 26, alignItems: "center", flexGrow: 1 },
   legendRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
   swatch: { width: 9, height: 9, marginRight: 6 },
-  stars: { fontSize: 11, color: "#E0A800", width: 62 },
+  starsCell: { width: 64, flexDirection: "row", alignItems: "center" },
   legendLabel: { fontSize: 9, color: C.text, width: 66 },
   legendPct: { fontSize: 10, fontFamily: "Helvetica-Bold", color: C.grey },
   table: { borderWidth: 1, borderColor: C.border, marginTop: 4 },
@@ -157,7 +173,9 @@ function Legend({ dist }: { dist: { valor: number; pct: number }[] }) {
       {ESCALA.map((e) => (
         <View key={e.valor} style={s.legendRow}>
           <View style={[s.swatch, { backgroundColor: SLICE_COLORS[e.valor] }]} />
-          <Text style={s.stars}>{e.estrellas}</Text>
+          <View style={s.starsCell}>
+            <Stars count={e.valor} />
+          </View>
           <Text style={s.legendLabel}>{e.label}</Text>
           <Text style={s.legendPct}>{Math.round(byValor.get(e.valor) ?? 0)}%</Text>
         </View>
@@ -260,9 +278,10 @@ export function SPReportTemplate({ data }: { data: ReportDataSP }) {
               </View>
               {ESCALA.map((e) => (
                 <View key={e.valor} style={s.tr}>
-                  <Text style={[s.tdCell, s.colWide, { color: "#E0A800" }]}>
-                    {e.valor}  {e.estrellas}
-                  </Text>
+                  <View style={[s.colWide, { flexDirection: "row", alignItems: "center", padding: 5 }]}>
+                    <Text style={{ fontSize: 9, width: 16, color: C.text }}>{e.valor}</Text>
+                    <Stars count={e.valor} size={10} />
+                  </View>
                   <Text style={[s.tdCell, { width: 110 }]}>{e.label}</Text>
                 </View>
               ))}
