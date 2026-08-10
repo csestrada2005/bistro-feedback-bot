@@ -78,7 +78,7 @@ export default function PublicSurveyPage() {
       try {
         const { data: com, error: comErr } = await supabase
           .from("comedores")
-          .select("id, slug, nombre")
+          .select("id, slug, nombre, escala_niveles")
           .eq("slug", slug)
           .eq("activo", true)
           .maybeSingle();
